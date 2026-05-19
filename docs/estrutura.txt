@@ -1,0 +1,258 @@
+estoque-ti
+│
+├── main.py
+├── database.db
+├── requirements.txt
+│
+├── database
+│   ├── connection.py
+│   ├── create_tables.py
+│
+├── models
+│   ├── item.py
+│   ├── usuario.py
+│   ├── movimentacao.py
+│
+├── services
+│   ├── item_service.py
+│   ├── usuario_service.py
+│   ├── movimentacao_service.py
+│
+├── ui
+│   ├── login_window.py
+│   ├── main_window.py
+│   ├── add_item_window.py
+│   ├── movimentacao_window.py
+│
+├── utils
+│   ├── alertas.py
+│
+├── images
+│   └── produtos
+│
+└── docs
+    └── documentacao.md
+
+Explicação de Cada Pasta
+main.py
+
+Arquivo principal que inicia o sistema.
+
+Ele vai:
+
+iniciar o PyQt
+
+abrir tela de login
+
+iniciar a aplicação
+
+database/
+
+Responsável pelo acesso ao SQLite.
+
+connection.py
+
+Faz a conexão com o banco.
+
+Exemplo:
+
+import sqlite3
+
+def connect():
+    conn = sqlite3.connect("database.db")
+    return conn
+create_tables.py
+
+Cria as tabelas caso elas não existam.
+
+Assim o sistema cria o banco automaticamente.
+
+models/
+
+Representa os objetos do sistema.
+
+Exemplo:
+
+item.py
+class Item:
+    def __init__(self, nome, caixa, localizacao, quantidade, quantidade_minima, foto):
+        self.nome = nome
+        self.caixa = caixa
+        self.localizacao = localizacao
+        self.quantidade = quantidade
+        self.quantidade_minima = quantidade_minima
+        self.foto = foto
+
+Isso ajuda a organizar dados.
+
+services/
+
+Aqui fica a lógica do sistema.
+
+Ou seja:
+
+adicionar item
+
+alterar item
+
+excluir item
+
+registrar movimentação
+
+Exemplo:
+
+item_service.py
+from database.connection import connect
+
+def adicionar_item(item):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    INSERT INTO itens (nome, caixa, localizacao, quantidade, quantidade_minima, foto)
+    VALUES (?, ?, ?, ?, ?, ?)
+    """, (item.nome, item.caixa, item.localizacao, item.quantidade, item.quantidade_minima, item.foto))
+
+    conn.commit()
+    conn.close()
+ui/
+
+Aqui ficam todas as telas do PyQt.
+
+Cada tela separada.
+
+login_window.py
+
+Tela de login.
+
+main_window.py
+
+Tela principal com:
+
+lista de itens
+
+busca
+
+filtros
+
+add_item_window.py
+
+Tela de cadastro.
+
+movimentacao_window.py
+
+Entrada e saída de estoque.
+
+utils/
+
+Funções auxiliares.
+
+Exemplo:
+
+alertas.py
+
+Para mostrar alerta de estoque baixo.
+
+def estoque_baixo(qtd, qtd_min):
+    return qtd <= qtd_min
+images/
+
+Aqui ficam as fotos dos produtos.
+
+Estrutura:
+
+images
+   produtos
+      mouse.jpg
+      ssd.jpg
+
+No banco você salva o caminho da imagem.
+
+Exemplo:
+
+images/produtos/mouse.jpg
+docs/
+
+Sua documentação do projeto.
+
+requirements.txt
+
+Dependências do projeto.
+
+Exemplo:
+
+PyQt6
+
+Depois você instala com:
+
+pip install -r requirements.txt
+Fluxo de Funcionamento do Sistema
+main.py
+   ↓
+login_window
+   ↓
+main_window
+   ↓
+item_service
+   ↓
+database
+Sequência Recomendada de Desenvolvimento
+
+Faça nessa ordem (evita dor de cabeça):
+
+1️⃣ Criar banco e tabelas
+
+connection.py
+
+create_tables.py
+
+2️⃣ Fazer services
+
+item_service
+
+usuario_service
+
+movimentacao_service
+
+3️⃣ Criar tela de login
+4️⃣ Criar tela principal
+5️⃣ Criar cadastro de itens
+6️⃣ Criar entrada e saída
+Dica MUITO importante para seu caso
+
+Como 7 pessoas vão acessar, coloque o banco em uma pasta de rede:
+
+Exemplo:
+
+\\SERVIDOR\estoqueTI\database.db
+
+Assim todos acessam o mesmo banco.
+
+Próximo passo (o que eu recomendo)
+
+Antes de começar a programar, eu posso te mostrar também:
+
+🧠 A interface ideal para esse sistema
+
+Com layout de:
+
+tabela de itens
+
+botões
+
+filtros
+
+alerta de estoque
+
+Porque essa parte decide se o sistema vai ser fácil de usar no tablet ou não.
+
+E também posso te mandar o código inicial do projeto (100 linhas) que já cria:
+
+banco
+
+login
+
+tela principal
+
+Você começa com metade do sistema pronto.
+
