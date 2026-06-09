@@ -1,5 +1,7 @@
-from database.connection import connect
 from datetime import datetime
+
+from database.connection import connect
+
 
 def registrar_movimentacao(item_id, tipo, quantidade, usuario_id=None, observacao=""):
     conn = connect()
@@ -7,7 +9,7 @@ def registrar_movimentacao(item_id, tipo, quantidade, usuario_id=None, observaca
 
     cursor.execute("""
         INSERT INTO movimentacoes
-        (id_item, tipo, quantidade, id_usuario, observacao, data) -- <-- CORREÇÃO
+        (id_item, tipo, quantidade, id_usuario, observacao, data)
         VALUES (?, ?, ?, ?, ?, ?)
     """, (
         item_id,
@@ -15,22 +17,22 @@ def registrar_movimentacao(item_id, tipo, quantidade, usuario_id=None, observaca
         quantidade,
         usuario_id,
         observacao,
-        datetime.now()
+        datetime.now(),
     ))
     conn.commit()
     conn.close()
 
+
 def listar_historico():
     conn = connect()
     cursor = conn.cursor()
-    # O JOIN busca o nome do item e o nome do usuário que fez a ação
     cursor.execute("""
-        SELECT 
-            m.data, 
-            i.nome as item_nome, 
-            m.tipo, 
-            m.quantidade, 
-            u.nome as usuario_nome, 
+        SELECT
+            m.data,
+            i.nome as item_nome,
+            m.tipo,
+            m.quantidade,
+            u.nome as usuario_nome,
             m.observacao
         FROM movimentacoes m
         JOIN itens i ON m.id_item = i.id_item

@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QGraphicsDropShadowEffect
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QGuiApplication # <-- Adicionado QGuiApplication
+from PyQt6.QtGui import QColor, QGuiApplication
 from services.usuario_service import registrar_usuario
 
 class RegisterWindow(QWidget):
@@ -49,9 +49,9 @@ class RegisterWindow(QWidget):
         self.card = QFrame()
         self.card.setStyleSheet("""
             QFrame {
-                background-color: #e8e0cc; /* Bege original mantido */
+                background-color: #FFFFFF;
                 border-radius: 20px;
-                border: 1px solid #d1c9b8;
+                border: 1px solid #E4DED2;
             }
             QLabel { 
                 border: none; 
@@ -137,7 +137,7 @@ class RegisterWindow(QWidget):
         return """
             QLineEdit {
                 padding: 10px;
-                border: 1px solid #d1c9b8;
+                border: 1px solid #E4DED2;
                 border-radius: 8px;
                 background: white;
                 color: #333;

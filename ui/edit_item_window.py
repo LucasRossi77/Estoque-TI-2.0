@@ -1,14 +1,21 @@
 import os
+import shutil
+import uuid
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel,
     QLineEdit, QPushButton, QFileDialog, QScrollArea,
-    QSpinBox, QMessageBox, QFrame, QComboBox
+    QSpinBox, QMessageBox, QFrame, QComboBox, QCheckBox
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
-import shutil
-import uuid
+
 from services.item_service import buscar_item_por_id, atualizar_item
+from ui.theme import (
+    LOCALIZACOES_PADRAO, apply_shadow, button_style, card_style,
+    input_style, palette
+)
+
 
 class EditItemWidget(QWidget):
     def __init__(self, item_id, atualizar_tabela, voltar_callback):
@@ -16,8 +23,8 @@ class EditItemWidget(QWidget):
         self.item_id = item_id
         self.atualizar_tabela = atualizar_tabela
         self.voltar_callback = voltar_callback
-        
-        # 1. Busca os dados
+        self.dark_mode = False
+
         self.item_info = buscar_item_por_id(self.item_id)
         if not self.item_info:
             QMessageBox.critical(self, "Erro", "Item não encontrado!")
@@ -25,174 +32,241 @@ class EditItemWidget(QWidget):
             return
 
         self.foto_path = self.item_info.get("foto", "") or ""
-        self.cor_azul = "#1F2937" # O azul do botão salvar
+        self.foto_nova = ""
 
-        # --- Interface ---
-        self.setStyleSheet("background-color: #e8e0cc;")
         layout_principal = QVBoxLayout(self)
         layout_principal.setContentsMargins(0, 0, 0, 0)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("border: none; background-color: transparent;")
-        
-        container = QWidget()
-        layout_container = QVBoxLayout(container)
-        layout_container.setContentsMargins(30, 30, 30, 30)
-        layout_container.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setStyleSheet("border: none; background-color: transparent;")
 
+        self.container = QWidget()
+        self.layout_container = QVBoxLayout(self.container)
+        self.layout_container.setContentsMargins(30, 24, 30, 30)
+        self.layout_container.setSpacing(18)
+        self.layout_container.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        self.layout_container.addWidget(self.criar_cabecalho())
+        self.layout_container.addWidget(self.criar_card_formulario())
+
+        self.scroll.setWidget(self.container)
+        layout_principal.addWidget(self.scroll)
+        self.aplicar_tema(False)
+        self.exibir_foto(self.foto_path)
+
+    def criar_cabecalho(self):
+        self.header = QFrame()
+        self.header.setObjectName("headerEdicao")
+        layout = QVBoxLayout(self.header)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(6)
+
+        self.lbl_header_titulo = QLabel("Editar Item")
+        self.lbl_header_titulo.setObjectName("headerTitulo")
+        self.lbl_header_subtitulo = QLabel(
+            "Atualize os dados do item mantendo a foto e a regra de mínimo sob controle."
+        )
+        self.lbl_header_subtitulo.setObjectName("headerSubtitulo")
+        self.lbl_header_subtitulo.setWordWrap(True)
+        layout.addWidget(self.lbl_header_titulo)
+        layout.addWidget(self.lbl_header_subtitulo)
+        apply_shadow(self.header)
+        return self.header
+
+    def criar_card_formulario(self):
         self.card = QFrame()
-        self.card.setMinimumWidth(700) # Aumentei um pouco a largura para acomodar a foto maior
-        self.card.setStyleSheet("background-color: #e8e0cc; border-radius: 20px; border: 1px solid #d1c9b8;")
-
+        self.card.setObjectName("cardEdicao")
         layout_card = QVBoxLayout(self.card)
-        layout_card.setSpacing(10) # Reduzido para aproximar os elementos
-        layout_card.setContentsMargins(40, 40, 40, 40)
+        layout_card.setSpacing(18)
+        layout_card.setContentsMargins(24, 22, 24, 24)
 
-        titulo = QLabel("EDITAR INFORMAÇÕES")
-        titulo.setStyleSheet("font-size: 22px; color: #1F2937; border: none; font-weight: bold; margin-bottom: 10px;")
-        layout_card.addWidget(titulo)
-
-        # --- SEÇÃO SUPERIOR: FOTO + NOME ---
         secao_topo = QHBoxLayout()
-        secao_topo.setSpacing(25)
-        secao_topo.setAlignment(Qt.AlignmentFlag.AlignTop) # Alinha o topo da foto com o topo do texto
+        secao_topo.setSpacing(20)
+        secao_topo.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Container da Foto (Aumentado para 200x200)
         self.frame_foto = QFrame()
-        self.frame_foto.setFixedSize(200, 200)
-        # Borda com o mesmo azul do salvar
-        self.frame_foto.setStyleSheet(f"border: 3px solid {self.cor_azul}; border-radius: 15px; background-color: white;")
-        layout_f = QVBoxLayout(self.frame_foto)
-        
+        self.frame_foto.setObjectName("frameFoto")
+        self.frame_foto.setFixedSize(190, 190)
+        layout_foto = QVBoxLayout(self.frame_foto)
+        layout_foto.setContentsMargins(8, 8, 8, 8)
+
         self.lbl_foto = QLabel("SEM FOTO")
         self.lbl_foto.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_foto.setStyleSheet("border: none; color: #9c9075; font-weight: bold;")
-        layout_f.addWidget(self.lbl_foto)
-        
-        if self.foto_path:
-            caminho_absoluto = os.path.abspath(self.foto_path)
-            if os.path.exists(caminho_absoluto):
-                pixmap = QPixmap(caminho_absoluto)
-                if not pixmap.isNull():
-                    self.lbl_foto.setPixmap(pixmap.scaled(190, 190, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-                    self.lbl_foto.setText("")
+        self.lbl_foto.setWordWrap(True)
+        layout_foto.addWidget(self.lbl_foto)
 
-        # Lado direito: Nome e Botão de Foto
         vbox_nome = QVBoxLayout()
         vbox_nome.setSpacing(8)
-        vbox_nome.setContentsMargins(0, 0, 0, 0)
-        
-        lbl_n = QLabel("Nome do Item:")
-        lbl_n.setStyleSheet("color: #1F2937; font-weight: bold; border: none; font-size: 14px;")
-        
+        self.lbl_nome = QLabel("Nome do item")
         self.nome = QLineEdit(str(self.item_info.get("nome", "")))
-        self.nome.setStyleSheet(self.estilo_input())
-        self.nome.setFixedHeight(50) # Deixa a caixa de nome mais robusta
-        
-        # Botão Alterar Foto com o mesmo azul do salvar
-        self.btn_foto = QPushButton("📸 Alterar Imagem do Item")
+
+        self.btn_foto = QPushButton("Alterar imagem")
         self.btn_foto.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_foto.setStyleSheet(f"""
-            background-color: {self.cor_azul}; 
-            color: white; 
-            border-radius: 8px; 
-            padding: 12px; 
-            font-weight: bold; 
-            border: none;
-        """)
         self.btn_foto.clicked.connect(self.selecionar_foto)
 
-        vbox_nome.addWidget(lbl_n)
+        self.lbl_dica_minimo = QLabel(
+            "A cobertura operacional é fixa: 50% da quantidade marcada como em uso."
+        )
+        self.lbl_dica_minimo.setWordWrap(True)
+
+        vbox_nome.addWidget(self.lbl_nome)
         vbox_nome.addWidget(self.nome)
-        vbox_nome.addSpacing(10)
         vbox_nome.addWidget(self.btn_foto)
-        vbox_nome.addStretch() # Empurra tudo para cima para alinhar com a foto
+        vbox_nome.addWidget(self.lbl_dica_minimo)
+        vbox_nome.addStretch()
 
         secao_topo.addWidget(self.frame_foto)
         secao_topo.addLayout(vbox_nome)
         layout_card.addLayout(secao_topo)
 
-        # --- SEÇÃO INFERIOR: GRID DE CAMPOS ---
         layout_form = QGridLayout()
-        layout_form.setSpacing(15)
-        layout_form.setContentsMargins(0, 10, 0, 10) # Margem pequena para encostar na foto
-        estilo_label = "color: #1F2937; font-weight: bold; border: none;"
+        layout_form.setSpacing(14)
 
-        layout_form.addWidget(QLabel("Caixa:", styleSheet=estilo_label), 0, 0)
-        self.caixa = QLineEdit(str(self.item_info.get("caixa", "")))
-        self.caixa.setStyleSheet(self.estilo_input())
-        layout_form.addWidget(self.caixa, 1, 0)
-
-        layout_form.addWidget(QLabel("Localização:", styleSheet=estilo_label), 0, 1)
+        self.caixa = QLineEdit(str(self.item_info.get("caixa", "") or ""))
         self.localizacao = QComboBox()
-        self.localizacao.addItems(["Sem Armário", "Armário 1", "Armário 2", "Armário 3", "Cestos", "Bancada/Setor"])
-        idx = self.localizacao.findText(str(self.item_info.get("localizacao", "")))
-        if idx >= 0: self.localizacao.setCurrentIndex(idx)
-        self.localizacao.setStyleSheet(self.estilo_combo())
-        layout_form.addWidget(self.localizacao, 1, 1)
+        self.localizacao.addItems(LOCALIZACOES_PADRAO)
+        idx = self.localizacao.findText(str(self.item_info.get("localizacao", "") or ""))
+        if idx >= 0:
+            self.localizacao.setCurrentIndex(idx)
 
-        layout_form.addWidget(QLabel("Quantidade Atual:", styleSheet=estilo_label), 2, 0)
         self.quantidade = QSpinBox()
         self.quantidade.setMaximum(999999)
-        self.quantidade.setValue(int(self.item_info.get("quantidade", 0)))
-        self.quantidade.setStyleSheet(self.estilo_input())
-        layout_form.addWidget(self.quantidade, 3, 0)
+        self.quantidade.setValue(int(self.item_info.get("quantidade", 0) or 0))
 
-        layout_form.addWidget(QLabel("Quantidade Mínima:", styleSheet=estilo_label), 2, 1)
+        valor_minimo = int(self.item_info.get("quantidade_minima", 0) or 0)
         self.quantidade_minima = QSpinBox()
         self.quantidade_minima.setMaximum(999999)
-        self.quantidade_minima.setValue(int(self.item_info.get("quantidade_minima", 0)))
-        self.quantidade_minima.setStyleSheet(self.estilo_input())
-        layout_form.addWidget(self.quantidade_minima, 3, 1)
+        self.quantidade_minima.setValue(valor_minimo)
+        self.check_sem_minimo = QCheckBox("Este item não precisa de estoque mínimo")
+        self.check_sem_minimo.setChecked(valor_minimo == 0)
+        self.check_sem_minimo.stateChanged.connect(self.atualizar_estado_minimo)
 
+        layout_form.addWidget(self.criar_label("Caixa"), 0, 0)
+        layout_form.addWidget(self.caixa, 1, 0)
+        layout_form.addWidget(self.criar_label("Localização"), 0, 1)
+        layout_form.addWidget(self.localizacao, 1, 1)
+        layout_form.addWidget(self.criar_label("Quantidade atual"), 2, 0)
+        layout_form.addWidget(self.quantidade, 3, 0)
+        layout_form.addWidget(self.criar_label("Estoque mínimo"), 2, 1)
+        layout_form.addWidget(self.quantidade_minima, 3, 1)
+        layout_form.addWidget(self.check_sem_minimo, 4, 1)
         layout_card.addLayout(layout_form)
 
-        # Botões Finais
-        self.btn_salvar = QPushButton("SALVAR ALTERAÇÕES")
-        self.btn_salvar.setMinimumHeight(55)
-        self.btn_salvar.setStyleSheet(f"background-color: {self.cor_azul}; color: white; border-radius: 12px; font-weight: bold; font-size: 15px; border: none;")
+        self.btn_salvar = QPushButton("Salvar alterações")
+        self.btn_salvar.setMinimumHeight(48)
+        self.btn_salvar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_salvar.clicked.connect(self.salvar_edicao)
         layout_card.addWidget(self.btn_salvar)
 
-        self.btn_voltar = QPushButton("Cancelar e Sair")
-        self.btn_voltar.setStyleSheet("color: #4B5563; text-decoration: underline; border: none; background: transparent;")
+        self.btn_voltar = QPushButton("Cancelar e sair")
+        self.btn_voltar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_voltar.clicked.connect(self.voltar_callback)
-        layout_card.addWidget(self.btn_voltar)
+        layout_card.addWidget(self.btn_voltar, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        layout_container.addWidget(self.card)
-        scroll.setWidget(container)
-        layout_principal.addWidget(scroll)
+        apply_shadow(self.card)
+        self.atualizar_estado_minimo()
+        return self.card
 
-    def estilo_input(self):
-        return """
-            QLineEdit, QSpinBox {
-                padding: 10px; border: 1px solid #d1c9b8; border-radius: 8px;
-                background: white; color: #333; font-size: 14px;
-                /* Força a cor do texto na seleção para não ficar branco no fundo branco */
-                selection-background-color: transparent; 
-                selection-color: #333;
-            }
-            QLineEdit:focus, QSpinBox:focus { border: 2px solid #1F2937; }
-        """
-    
-    def estilo_combo(self):
-        return """
-            QComboBox {
-                padding: 10px; border: 1px solid #d1c9b8; border-radius: 8px;
-                background: white; color: #333; font-size: 14px;
-            }
-            QComboBox::drop-down { border: none; width: 30px; }
-            QComboBox::down-arrow { image: none; border-top: 6px solid #1F2937; border-left: 4px solid transparent; border-right: 4px solid transparent; }
-        """
+    def criar_label(self, texto):
+        label = QLabel(texto)
+        label.setObjectName("formLabel")
+        return label
+
+    def atualizar_estado_minimo(self):
+        sem_minimo = self.check_sem_minimo.isChecked()
+        self.quantidade_minima.setEnabled(not sem_minimo)
+        if sem_minimo:
+            self.quantidade_minima.setValue(0)
+
+    def resolver_caminho_foto(self, caminho):
+        if not caminho:
+            return ""
+        if os.path.isabs(caminho) and os.path.exists(caminho):
+            return caminho
+        absoluto = os.path.abspath(caminho)
+        return absoluto if os.path.exists(absoluto) else ""
+
+    def exibir_foto(self, caminho):
+        caminho_real = self.resolver_caminho_foto(caminho)
+        if caminho_real:
+            pixmap = QPixmap(caminho_real)
+            if not pixmap.isNull():
+                self.lbl_foto.setPixmap(
+                    pixmap.scaled(174, 174, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                )
+                self.lbl_foto.setText("")
+
+    def aplicar_tema(self, dark=False):
+        self.dark_mode = dark
+        p = palette(dark)
+        self.setStyleSheet(f"background-color: {p['bg']}; color: {p['text']};")
+        self.container.setStyleSheet(f"background-color: {p['bg']};")
+        self.scroll.setStyleSheet(f"QScrollArea {{ border: none; background-color: {p['bg']}; }}")
+        self.header.setStyleSheet(f"""
+            QFrame#headerEdicao {{
+                background-color: {p['header']};
+                border-radius: 8px;
+                border: none;
+            }}
+            QLabel#headerTitulo {{
+                color: {p['header_text']};
+                font-size: 28px;
+                font-weight: 800;
+                border: none;
+            }}
+            QLabel#headerSubtitulo {{
+                color: {p['header_muted']};
+                font-size: 14px;
+                border: none;
+            }}
+        """)
+        self.card.setStyleSheet(card_style(dark))
+        self.frame_foto.setStyleSheet(f"""
+            QFrame#frameFoto {{
+                background-color: {p['card_alt']};
+                border-radius: 8px;
+                border: 1px solid {p['border']};
+            }}
+            QLabel {{
+                color: {p['muted']};
+                border: none;
+                font-weight: 800;
+            }}
+        """)
+        for widget in [self.nome, self.caixa, self.localizacao, self.quantidade, self.quantidade_minima]:
+            widget.setStyleSheet(input_style(dark))
+        for label in self.findChildren(QLabel, "formLabel") + [self.lbl_nome]:
+            label.setStyleSheet(f"color: {p['text']}; font-weight: 800; border: none;")
+        self.lbl_dica_minimo.setStyleSheet(f"color: {p['muted']}; border: none; font-size: 12px;")
+        self.check_sem_minimo.setStyleSheet(f"color: {p['text']}; border: none;")
+        self.btn_foto.setStyleSheet(button_style("dark", dark))
+        self.btn_salvar.setStyleSheet(button_style("primary", dark))
+        self.btn_voltar.setStyleSheet(button_style("ghost", dark))
+        apply_shadow(self.header, dark, blur=18)
+        apply_shadow(self.card, dark, blur=18)
 
     def selecionar_foto(self):
         file, _ = QFileDialog.getOpenFileName(self, "Selecionar Foto", "", "Images (*.png *.jpg *.jpeg)")
         if file:
-            self.foto_path = file
-            pixmap = QPixmap(file)
-            self.lbl_foto.setPixmap(pixmap.scaled(190, 190, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-            self.lbl_foto.setText("")
+            self.foto_nova = file
+            self.exibir_foto(file)
+            self.btn_foto.setText("Trocar imagem")
+
+    def copiar_foto_para_app(self):
+        if not self.foto_nova:
+            return self.foto_path
+
+        try:
+            os.makedirs("fotos", exist_ok=True)
+            ext = os.path.splitext(self.foto_nova)[1]
+            novo_nome = f"{uuid.uuid4().hex}{ext}"
+            caminho_dest = os.path.join("fotos", novo_nome).replace("\\", "/")
+            shutil.copy(self.foto_nova, caminho_dest)
+            return caminho_dest
+        except Exception as exc:
+            QMessageBox.warning(self, "Aviso", f"Não foi possível salvar a foto: {exc}")
+            return self.foto_path
 
     def salvar_edicao(self):
         nome = self.nome.text().strip()
@@ -200,25 +274,21 @@ class EditItemWidget(QWidget):
             QMessageBox.warning(self, "Erro", "O nome é obrigatório.")
             return
 
-        caminho_final = self.foto_path
-        if self.foto_path and not self.foto_path.startswith("fotos"):
-            try:
-                if not os.path.exists("fotos"): os.makedirs("fotos")
-                ext = os.path.splitext(self.foto_path)[1]
-                novo_nome = f"{uuid.uuid4().hex}{ext}"
-                caminho_final = os.path.join("fotos", novo_nome).replace("\\", "/")
-                shutil.copy(self.foto_path, caminho_final)
-            except Exception as e:
-                print(f"Erro ao copiar foto: {e}")
+        caminho_final = self.copiar_foto_para_app()
+        quantidade_minima = 0 if self.check_sem_minimo.isChecked() else self.quantidade_minima.value()
 
         try:
             atualizar_item(
-                self.item_id, nome, self.caixa.text(), 
-                self.localizacao.currentText(), self.quantidade_minima.value(), 
-                self.quantidade.value(), caminho_final
+                self.item_id,
+                nome,
+                self.caixa.text().strip(),
+                self.localizacao.currentText(),
+                quantidade_minima,
+                self.quantidade.value(),
+                caminho_final,
             )
             QMessageBox.information(self, "Sucesso", "Item atualizado!")
             self.atualizar_tabela()
             self.voltar_callback()
-        except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Falha ao salvar: {e}")
+        except Exception as exc:
+            QMessageBox.critical(self, "Erro", f"Falha ao salvar: {exc}")

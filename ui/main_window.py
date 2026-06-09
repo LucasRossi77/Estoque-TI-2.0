@@ -1,4 +1,3 @@
-import sqlite3
 import os
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
@@ -9,13 +8,12 @@ from PyQt6.QtWidgets import (
 from datetime import datetime 
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import (
-    QColor, QIcon, QPixmap, 
+    QBrush, QColor, QIcon, QPixmap, 
     QTextDocument, QPdfWriter
 )
+from database.connection import DB_PATH, connect, get_table_columns
+from ui.theme import LOCALIZACOES_PADRAO, apply_shadow, button_style, card_style, input_style, palette, table_style
 
-# =====================================================================
-# NOVA CLASSE: VISUALIZAÇÃO EM BLOCOS (DRILL-DOWN)
-# =====================================================================
 class VisaoBlocosWidget(QWidget):
     def __init__(self, caminho_db, pasta_fotos):
         super().__init__()
@@ -23,6 +21,7 @@ class VisaoBlocosWidget(QWidget):
         self.pasta_fotos = pasta_fotos
         self.nivel_atual = "LOCALIZACAO"
         self.local_selecionado = ""
+        self.dark_mode = False
 
         self.layout_principal = QVBoxLayout(self)
         self.layout_principal.setContentsMargins(0, 0, 0, 0)
@@ -57,13 +56,20 @@ class VisaoBlocosWidget(QWidget):
             widget = self.layout_grid.itemAt(i).widget()
             if widget: widget.deleteLater()
 
+    def aplicar_tema(self, dark=False):
+        self.dark_mode = dark
+        p = palette(dark)
+        self.btn_voltar.setStyleSheet(button_style("dark", dark))
+        self.lbl_caminho.setStyleSheet(f"font-weight: bold; color: {p['accent']}; font-size: 14px;")
+        self.scroll.setStyleSheet(f"border: none; background: {p['bg']};")
+
     def carregar_localizacoes(self):
         self.limpar_grid()
         self.nivel_atual = "LOCALIZACAO"
         self.lbl_caminho.setText("🏠 Todas as Localizações")
         self.btn_voltar.hide()
         
-        conn = sqlite3.connect(self.caminho_db)
+        conn = connect()
         cursor = conn.cursor()
         cursor.execute("SELECT DISTINCT localizacao FROM itens WHERE localizacao IS NOT NULL AND localizacao != ''")
         locais = cursor.fetchall()
@@ -71,13 +77,11 @@ class VisaoBlocosWidget(QWidget):
 
         for index, (local,) in enumerate(locais):
             btn = QPushButton(f"📍\n{local}")
-            # --- BLOCOS MAIORES AQUI ---
             btn.setFixedSize(180, 130) 
-            btn.setStyleSheet("background-color: #223959; color: white; font-weight: bold; font-size: 16px; border-radius: 8px;")
+            btn.setStyleSheet(button_style("dark", self.dark_mode) + "QPushButton { font-size: 16px; }")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.clicked.connect(lambda checked, l=local: self.carregar_caixas(l))
             
-            # Ajustei o divisor para 4 colunas ao invés de 5, já que os blocos ficaram maiores
             linha, coluna = divmod(index, 4)
             self.layout_grid.addWidget(btn, linha, coluna)
 
@@ -88,7 +92,7 @@ class VisaoBlocosWidget(QWidget):
         self.lbl_caminho.setText(f"🏠 {local} > Selecione uma Caixa")
         self.btn_voltar.show()
 
-        conn = sqlite3.connect(self.caminho_db)
+        conn = connect()
         cursor = conn.cursor()
         cursor.execute("SELECT DISTINCT caixa FROM itens WHERE localizacao = ? AND caixa IS NOT NULL AND caixa != ''", (local,))
         caixas = cursor.fetchall()
@@ -96,9 +100,8 @@ class VisaoBlocosWidget(QWidget):
 
         for index, (caixa,) in enumerate(caixas):
             btn = QPushButton(f"📦\n{caixa}")
-            # --- BLOCOS MAIORES AQUI ---
             btn.setFixedSize(180, 130)
-            btn.setStyleSheet("background-color: #223959; color: white; font-weight: bold; font-size: 16px; border-radius: 8px;")
+            btn.setStyleSheet(button_style("dark", self.dark_mode) + "QPushButton { font-size: 16px; }")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.clicked.connect(lambda checked, c=caixa: self.carregar_itens_final(c))
             linha, coluna = divmod(index, 4)
@@ -109,8 +112,7 @@ class VisaoBlocosWidget(QWidget):
         self.nivel_atual = "ITEM"
         self.lbl_caminho.setText(f"🏠 {self.local_selecionado} > {caixa} > Itens")
         
-        conn = sqlite3.connect(self.caminho_db)
-        conn.row_factory = sqlite3.Row
+        conn = connect()
         cursor = conn.cursor()
         cursor.execute("SELECT nome, foto, quantidade, quantidade_minima FROM itens WHERE localizacao = ? AND caixa = ?", (self.local_selecionado, caixa))
         itens = cursor.fetchall()
@@ -118,9 +120,25 @@ class VisaoBlocosWidget(QWidget):
 
         for index, row in enumerate(itens):
             card = QFrame()
-            # --- TAMANHO DO ITEM MANTIDO ORIGINAL ---
             card.setFixedSize(160, 200)
-            card.setStyleSheet("background-color: white; border: 1px solid #d1c9b8; border-radius: 8px;")
+            qtd = int(row['quantidade'] or 0)
+            q_min = int(row['quantidade_minima'] or 0)
+            estoque_baixo = q_min > 0 and qtd <= q_min
+            p = palette(self.dark_mode)
+            if estoque_baixo:
+                card.setStyleSheet(f"""
+                    QFrame {{
+                        background-color: {p['danger_bg']};
+                        border-radius: 8px;
+                        border: 1px solid {p['danger']};
+                    }}
+                    QLabel {{
+                        background-color: transparent;
+                        border: none;
+                    }}
+                """)
+            else:
+                card.setStyleSheet(card_style(self.dark_mode))
             l_card = QVBoxLayout(card)
             l_card.setAlignment(Qt.AlignmentFlag.AlignCenter)
             
@@ -135,11 +153,11 @@ class VisaoBlocosWidget(QWidget):
             lbl_n = QLabel(row['nome'])
             lbl_n.setWordWrap(True)
             lbl_n.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            lbl_n.setStyleSheet("font-weight: bold; font-size: 12px; border: none; color: #223959;")
+            lbl_n.setStyleSheet(f"font-weight: bold; font-size: 12px; border: none; color: {palette(self.dark_mode)['text']};")
             
-            qtd, q_min = row['quantidade'], row['quantidade_minima']
-            cor = "#EF4444" if qtd <= q_min else "#10B981"
-            lbl_q = QLabel(f"Qtd: {qtd} (Mín: {q_min})")
+            cor = "#EF4444" if q_min > 0 and qtd <= q_min else "#10B981"
+            texto_minimo = q_min if q_min > 0 else "sem mínimo"
+            lbl_q = QLabel(f"Qtd: {qtd} (Mín: {texto_minimo})")
             lbl_q.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lbl_q.setStyleSheet(f"color: {cor}; font-weight: bold; font-size: 11px; border: none;")
 
@@ -147,7 +165,7 @@ class VisaoBlocosWidget(QWidget):
             l_card.addWidget(lbl_n)
             l_card.addWidget(lbl_q)
             
-            linha, coluna = divmod(index, 5) # Itens cabem mais, então mantive 5
+            linha, coluna = divmod(index, 5)
             self.layout_grid.addWidget(card, linha, coluna)
 
     def voltar_nivel(self):
@@ -155,28 +173,28 @@ class VisaoBlocosWidget(QWidget):
         elif self.nivel_atual == "CAIXA": self.carregar_localizacoes()
 
 
-# =====================================================================
-# CLASSE PRINCIPAL
-# =====================================================================
 class EstoqueWidget(QWidget):
     def __init__(self, usuario_id, callback_adicionar, callback_editar):
         super().__init__()
         self.usuario_id = usuario_id
         self.callback_adicionar = callback_adicionar
         self.callback_editar = callback_editar
+        self.dark_mode = False
+        self.botoes_acao = []
+        self.cards_kpi = []
+        self.titulos_kpi = []
         
         pasta_ui = os.path.dirname(os.path.abspath(__file__))
-        self.caminho_db = os.path.abspath(os.path.join(pasta_ui, "..", "database.db"))
+        self.caminho_db = DB_PATH
         self.pasta_fotos = os.path.abspath(os.path.join(pasta_ui, "..")) 
         
-        self.setStyleSheet("background-color: #e8e0cc;")
         layout_principal = QVBoxLayout(self)
         layout_principal.setContentsMargins(20, 20, 20, 20)
         layout_principal.setSpacing(15)
 
-        lbl_titulo = QLabel("Controle de Estoque")
-        lbl_titulo.setStyleSheet("font-size: 24px; font-weight: bold; color: #1F2937;")
-        layout_principal.addWidget(lbl_titulo)
+        self.layout_principal = layout_principal
+        layout_principal.addWidget(self.criar_cabecalho())
+        layout_principal.addWidget(self.criar_cards_como_usar())
 
         layout_cards = QHBoxLayout()
         self.lbl_total_itens = self.criar_cartao(layout_cards, "Itens Cadastrados")
@@ -186,14 +204,15 @@ class EstoqueWidget(QWidget):
         layout_principal.addLayout(layout_cards)
 
         frame_filtros = QFrame()
-        frame_filtros.setStyleSheet("background-color: white; border-radius: 8px; border: 1px solid #d1c9b8;")
+        self.frame_filtros = frame_filtros
+        frame_filtros.setStyleSheet("background-color: white; border-radius: 8px; border: 1px solid #E4DED2;")
         layout_f = QHBoxLayout(frame_filtros)
         
         self.txt_filtro_nome = QLineEdit()
         self.txt_filtro_nome.setPlaceholderText("🔍 Buscar por nome...")
         
         self.combo_filtro_local = QComboBox()
-        self.combo_filtro_local.addItems(["Todos", "Sem Armário", "Armário 1", "Armário 2", "Armário 3", "Cestos", "Bancada/Setor"])
+        self.combo_filtro_local.addItems(["Todos"] + LOCALIZACOES_PADRAO)
         
         self.txt_filtro_caixa = QLineEdit()
         self.txt_filtro_caixa.setPlaceholderText("📦 Caixa...")
@@ -224,48 +243,40 @@ class EstoqueWidget(QWidget):
         layout_f.addWidget(btn_limpar)
         layout_principal.addWidget(frame_filtros)
 
-        # =========================================================
-        # SEPARAÇÃO DOS BOTÕES DE AÇÃO (ESQUERDA E DIREITA)
-        # =========================================================
         layout_acoes = QHBoxLayout()
         
-        # --- Botões de CRUD (Ficam na Esquerda) ---
         layout_esq = QHBoxLayout()
-        layout_esq.addWidget(self.criar_botao_acao("Adicionar", "#9c9075", self.callback_adicionar))
-        layout_esq.addWidget(self.criar_botao_acao("Editar", "#9c9075", self.editar_selecionado))
-        layout_esq.addWidget(self.criar_botao_acao("Excluir", "#9c9075", self.deletar_item))
+        layout_esq.addWidget(self.criar_botao_acao("Adicionar", "#2563EB", self.callback_adicionar))
+        layout_esq.addWidget(self.criar_botao_acao("Editar", "#2563EB", self.editar_selecionado))
+        layout_esq.addWidget(self.criar_botao_acao("Excluir", "#DC2626", self.deletar_item))
         layout_acoes.addLayout(layout_esq)
 
-        # O addStretch funciona como uma mola que empurra os botões seguintes para a direita
         layout_acoes.addStretch()
 
-        # --- Botões Especiais (Ficam na Direita) ---
         layout_dir = QHBoxLayout()
         self.btn_exportar = QPushButton("📥 Exportar")
         self.btn_exportar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_exportar.setStyleSheet("background-color: #059669; color: white; border-radius: 5px; padding: 10px 18px; font-weight: bold;")
         
-        menu_exportar = QMenu(self.btn_exportar)
-        menu_exportar.setStyleSheet("""
-            QMenu { background-color: white; border: 1px solid #d1c9b8; border-radius: 4px; } 
+        self.menu_exportar = QMenu(self.btn_exportar)
+        self.menu_exportar.setStyleSheet("""
+            QMenu { background-color: white; border: 1px solid #E4DED2; border-radius: 4px; } 
             QMenu::item { padding: 8px 25px; color: #223959; font-weight: bold; } 
-            QMenu::item:selected { background-color: #e8e0cc; }
+            QMenu::item:selected { background-color: #EFF6FF; }
         """)
-        acao_pdf = menu_exportar.addAction("📄 Exportar para PDF")
-        acao_xlsx = menu_exportar.addAction("📊 Exportar para Excel (.xlsx)")
+        acao_pdf = self.menu_exportar.addAction("📄 Exportar para PDF")
+        acao_xlsx = self.menu_exportar.addAction("📊 Exportar para Excel (.xlsx)")
         
         acao_pdf.triggered.connect(self.exportar_pdf)
         acao_xlsx.triggered.connect(self.exportar_excel)
         
-        self.btn_exportar.setMenu(menu_exportar)
+        self.btn_exportar.setMenu(self.menu_exportar)
         layout_dir.addWidget(self.btn_exportar)
 
         self.btn_toggle_vista = self.criar_botao_acao("🗂️ Ver em Blocos", "#223959", self.alternar_vista)
         layout_dir.addWidget(self.btn_toggle_vista)
 
         layout_acoes.addLayout(layout_dir)
-        # =========================================================
-
         layout_principal.addLayout(layout_acoes)
 
         self.stack = QStackedWidget()
@@ -283,11 +294,12 @@ class EstoqueWidget(QWidget):
         self.tabela.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tabela.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers) 
         self.tabela.setFocusPolicy(Qt.FocusPolicy.NoFocus) 
+        self.tabela.setAlternatingRowColors(False)
         
         self.tabela.setStyleSheet("""
-            QHeaderView::section { background-color: #e8e0cc; color: #1F2937; font-weight: bold; border: 1px solid #d1c9b8; }
-            QTableWidget { background-color: white; color: #1F2937; gridline-color: #d1c9b8; outline: 0; }
-            QTableWidget::item:selected { background-color: #a39179; color: #1F2937; border: none; }
+            QHeaderView::section { background-color: #223959; color: #FFFFFF; font-weight: bold; border: none; }
+            QTableWidget { background-color: white; color: #1F2937; gridline-color: #E4DED2; outline: 0; }
+            QTableWidget::item:selected { background-color: #DBEAFE; color: #1F2937; border: none; }
         """)
         
         self.stack.addWidget(self.tabela)
@@ -321,26 +333,218 @@ class EstoqueWidget(QWidget):
         self.txt_obs_mov.setPlaceholderText("Observação (opcional)...")
         self.txt_obs_mov.setStyleSheet("padding: 8px; border-radius: 5px; background: white; min-width: 200px;")
         
-        btn_entrada = QPushButton("ENTRADA")
-        btn_entrada.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_entrada.setStyleSheet("background-color: #00a941; color: white; font-weight: bold; padding: 10px 20px; border-radius: 5px;")
-        btn_entrada.clicked.connect(self.registrar_entrada)
+        self.btn_entrada = QPushButton("ENTRADA")
+        self.btn_entrada.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_entrada.setStyleSheet("background-color: #00a941; color: white; font-weight: bold; padding: 10px 20px; border-radius: 5px;")
+        self.btn_entrada.clicked.connect(self.registrar_entrada)
         
-        btn_saida = QPushButton("SAÍDA")
-        btn_saida.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_saida.setStyleSheet("background-color: #F03330; color: white; font-weight: bold; padding: 10px 20px; border-radius: 5px;")
-        btn_saida.clicked.connect(self.registrar_saida)
+        self.btn_saida = QPushButton("SAÍDA")
+        self.btn_saida.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_saida.setStyleSheet("background-color: #F03330; color: white; font-weight: bold; padding: 10px 20px; border-radius: 5px;")
+        self.btn_saida.clicked.connect(self.registrar_saida)
 
         layout_mov.addWidget(lbl_mov)
         layout_mov.addWidget(QLabel("Qtd:", styleSheet="color:white; border:none;"))
         layout_mov.addWidget(self.spin_qtd_mov)
         layout_mov.addWidget(self.txt_obs_mov)
-        layout_mov.addWidget(btn_entrada)
-        layout_mov.addWidget(btn_saida)
+        layout_mov.addWidget(self.btn_entrada)
+        layout_mov.addWidget(self.btn_saida)
         
         layout_principal.addWidget(self.frame_mov)
 
         self.carregar_itens()
+        self.aplicar_tema(self.dark_mode)
+
+    def criar_cabecalho(self):
+        frame = QFrame()
+        frame.setObjectName("headerEstoque")
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(6)
+
+        self.lbl_header_titulo = QLabel("Controle de Estoque")
+        self.lbl_header_titulo.setObjectName("headerTitulo")
+        self.lbl_header_subtitulo = QLabel(
+            "Cadastre, encontre, organize e movimente os itens de TI com uma visão clara do saldo."
+        )
+        self.lbl_header_subtitulo.setObjectName("headerSubtitulo")
+        self.lbl_header_subtitulo.setWordWrap(True)
+        layout.addWidget(self.lbl_header_titulo)
+        layout.addWidget(self.lbl_header_subtitulo)
+        apply_shadow(frame)
+        return frame
+
+    def criar_cards_como_usar(self):
+        frame = QFrame()
+        frame.setObjectName("comoUsarEstoque")
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(20, 18, 20, 20)
+        layout.setSpacing(14)
+
+        self.lbl_como_titulo = QLabel("Como usar esta tela")
+        self.lbl_como_titulo.setObjectName("comoTitulo")
+        self.lbl_como_subtitulo = QLabel(
+            "Use os filtros para localizar itens, selecione uma linha para editar ou faça entradas e saídas rápidas."
+        )
+        self.lbl_como_subtitulo.setObjectName("comoSubtitulo")
+        self.lbl_como_subtitulo.setWordWrap(True)
+        layout.addWidget(self.lbl_como_titulo)
+        layout.addWidget(self.lbl_como_subtitulo)
+
+        grid = QGridLayout()
+        grid.setSpacing(12)
+        passos = [
+            ("1", "Filtre", "Busque por nome, armário ou caixa antes de movimentar."),
+            ("2", "Selecione", "Clique em uma linha da tabela para editar, excluir ou movimentar."),
+            ("3", "Movimente", "Use entrada e saída rápida para ajustar o saldo do estoque."),
+            ("4", "Organize", "Alterne para blocos para navegar por localização e caixa."),
+        ]
+        self.cards_como_estoque = []
+        for idx, (numero, titulo, descricao) in enumerate(passos):
+            card = self.criar_card_passo(numero, titulo, descricao)
+            self.cards_como_estoque.append(card)
+            grid.addWidget(card, 0, idx)
+        layout.addLayout(grid)
+        apply_shadow(frame)
+        return frame
+
+    def criar_card_passo(self, numero, titulo, descricao):
+        card = QFrame()
+        card.setObjectName("cardPasso")
+        layout = QHBoxLayout(card)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
+
+        lbl_numero = QLabel(numero)
+        lbl_numero.setObjectName("numeroPasso")
+        lbl_numero.setFixedSize(34, 34)
+        lbl_numero.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        textos = QVBoxLayout()
+        textos.setSpacing(3)
+        lbl_titulo = QLabel(titulo)
+        lbl_titulo.setObjectName("tituloPasso")
+        lbl_desc = QLabel(descricao)
+        lbl_desc.setObjectName("descPasso")
+        lbl_desc.setWordWrap(True)
+        textos.addWidget(lbl_titulo)
+        textos.addWidget(lbl_desc)
+
+        layout.addWidget(lbl_numero)
+        layout.addLayout(textos)
+        return card
+
+    def aplicar_tema(self, dark=False):
+        self.dark_mode = dark
+        p = palette(dark)
+        self.setStyleSheet(f"background-color: {p['bg']}; color: {p['text']};")
+        self.frame_filtros.setStyleSheet(card_style(dark))
+        self.txt_filtro_nome.setStyleSheet(input_style(dark))
+        self.combo_filtro_local.setStyleSheet(input_style(dark))
+        self.txt_filtro_caixa.setStyleSheet(input_style(dark))
+        self.tabela.setStyleSheet(table_style(dark))
+
+        self.findChild(QFrame, "headerEstoque").setStyleSheet(f"""
+            QFrame#headerEstoque {{
+                background-color: {p['header']};
+                border-radius: 8px;
+                border: none;
+            }}
+            QLabel#headerTitulo {{
+                color: {p['header_text']};
+                font-size: 28px;
+                font-weight: 800;
+                border: none;
+            }}
+            QLabel#headerSubtitulo {{
+                color: {p['header_muted']};
+                font-size: 14px;
+                border: none;
+            }}
+        """)
+
+        self.findChild(QFrame, "comoUsarEstoque").setStyleSheet(f"""
+            QFrame#comoUsarEstoque {{
+                background-color: {p['card']};
+                border-radius: 8px;
+                border: 1px solid {p['border']};
+            }}
+            QLabel#comoTitulo {{
+                color: {p['text']};
+                font-size: 18px;
+                font-weight: 800;
+                border: none;
+            }}
+            QLabel#comoSubtitulo {{
+                color: {p['muted']};
+                font-size: 13px;
+                border: none;
+            }}
+            QFrame#cardPasso {{
+                background-color: {p['card_alt']};
+                border-radius: 8px;
+                border: 1px solid {p['border']};
+            }}
+            QLabel#numeroPasso {{
+                background-color: {p['soft']};
+                color: {p['accent']};
+                border: 1px solid {p['border']};
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 800;
+            }}
+            QLabel#tituloPasso {{
+                color: {p['text']};
+                font-size: 14px;
+                font-weight: 800;
+                border: none;
+            }}
+            QLabel#descPasso {{
+                color: {p['muted']};
+                font-size: 12px;
+                border: none;
+            }}
+        """)
+
+        for card in self.cards_kpi:
+            card.setStyleSheet(card_style(dark))
+            apply_shadow(card, dark)
+        for label in [self.lbl_total_itens, self.lbl_unidades, self.lbl_estoque_baixo, self.lbl_movimentacoes]:
+            label.setStyleSheet(f"color: {p['accent']}; font-size: 20px; font-weight: bold; border: none;")
+        for label in self.titulos_kpi:
+            label.setStyleSheet(f"color: {p['muted']}; font-size: 11px; font-weight: bold; border: none;")
+
+        for btn, texto in self.botoes_acao:
+            if "Excluir" in texto:
+                btn.setStyleSheet(button_style("danger", dark))
+            elif "Blocos" in texto or "Tabela" in texto:
+                btn.setStyleSheet(button_style("dark", dark))
+            else:
+                btn.setStyleSheet(button_style("primary", dark))
+
+        self.btn_exportar.setStyleSheet(button_style("success", dark))
+        self.menu_exportar.setStyleSheet(f"""
+            QMenu {{
+                background-color: {p['card']};
+                border: 1px solid {p['border']};
+                border-radius: 4px;
+            }}
+            QMenu::item {{
+                padding: 8px 25px;
+                color: {p['text']};
+                font-weight: bold;
+            }}
+            QMenu::item:selected {{
+                background-color: {p['soft']};
+            }}
+        """)
+        self.frame_mov.setStyleSheet(f"background-color: {p['header']}; border-radius: 8px;")
+        self.spin_qtd_mov.setStyleSheet(input_style(dark))
+        self.txt_obs_mov.setStyleSheet(input_style(dark))
+        self.btn_entrada.setStyleSheet(button_style("success", dark))
+        self.btn_saida.setStyleSheet(button_style("danger", dark))
+        if hasattr(self.visao_blocos, "aplicar_tema"):
+            self.visao_blocos.aplicar_tema(dark)
 
     def alternar_vista(self):
         if self.stack.currentIndex() == 0:
@@ -351,12 +555,15 @@ class EstoqueWidget(QWidget):
             self.stack.setCurrentIndex(0)
             self.btn_toggle_vista.setText("🗂️ Ver em Blocos")
             self.carregar_itens()
+        self.aplicar_tema(self.dark_mode)
 
     def criar_cartao(self, layout, titulo):
         card = QFrame()
-        card.setStyleSheet("background-color: white; border-radius: 8px; border: 1px solid #d1c9b8;")
+        card.setStyleSheet("background-color: white; border-radius: 8px; border: 1px solid #E4DED2;")
+        self.cards_kpi.append(card)
         c_layout = QVBoxLayout(card)
         lbl_t = QLabel(titulo); lbl_t.setStyleSheet("color: #6B7280; font-size: 11px; font-weight: bold; border: none;")
+        self.titulos_kpi.append(lbl_t)
         lbl_v = QLabel("0"); lbl_v.setStyleSheet("color: #1E3A8A; font-size: 20px; font-weight: bold; border: none;")
         c_layout.addWidget(lbl_t); c_layout.addWidget(lbl_v)
         layout.addWidget(card)
@@ -367,6 +574,7 @@ class EstoqueWidget(QWidget):
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setStyleSheet(f"background-color: {cor}; color: white; border-radius: 5px; padding: 10px 18px; font-weight: bold;")
         btn.clicked.connect(funcao)
+        self.botoes_acao.append((btn, texto))
         return btn
 
     def limpar_filtros(self):
@@ -376,16 +584,11 @@ class EstoqueWidget(QWidget):
         self.carregar_itens()
 
     def carregar_itens(self):
-        if not os.path.exists(self.caminho_db):
-            return
-
-        conn = sqlite3.connect(self.caminho_db)
-        conn.row_factory = sqlite3.Row
+        conn = connect()
         cursor = conn.cursor()
         
         try:
-            cursor.execute("PRAGMA table_info(itens)")
-            colunas = [col[1].lower() for col in cursor.fetchall()]
+            colunas = [coluna.lower() for coluna in get_table_columns("itens")]
             
             col_nome = 'nome' if 'nome' in colunas else colunas[1]
             col_local = 'localizacao' if 'localizacao' in colunas else (colunas[4] if len(colunas) > 4 else None)
@@ -425,11 +628,24 @@ class EstoqueWidget(QWidget):
                 try: min_q = int(row['quantidade_minima'])
                 except: min_q = 0
 
-                cor_fundo = QColor("#FFDADA") if qtd <= min_q else QColor("white")
+                estoque_baixo = min_q > 0 and qtd <= min_q
+                cor_alerta = "#3B1117" if self.dark_mode else "#FEE2E2"
+                cor_normal = palette(self.dark_mode)["card"]
+                cor_fundo = QColor(cor_alerta if estoque_baixo else cor_normal)
+                cor_texto_alerta = QColor("#FCA5A5" if self.dark_mode else "#7F1D1D")
+                brush_fundo = QBrush(cor_fundo)
 
                 item_id = QTableWidgetItem(str(row[0]))
-                item_id.setBackground(cor_fundo)
+                item_id.setBackground(brush_fundo)
+                item_id.setData(Qt.ItemDataRole.BackgroundRole, brush_fundo)
+                if estoque_baixo:
+                    item_id.setForeground(QBrush(cor_texto_alerta))
                 self.tabela.setItem(row_idx, 0, item_id)
+
+                item_foto = QTableWidgetItem("")
+                item_foto.setBackground(brush_fundo)
+                item_foto.setData(Qt.ItemDataRole.BackgroundRole, brush_fundo)
+                self.tabela.setItem(row_idx, 1, item_foto)
 
                 label_foto = QLabel()
                 label_foto.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -445,13 +661,21 @@ class EstoqueWidget(QWidget):
                 for col_idx, col_name in cols_mapping.items():
                     val = str(row[col_name]) if col_name and row[col_name] is not None else ""
                     item = QTableWidgetItem(val)
-                    item.setBackground(cor_fundo)
+                    item.setBackground(brush_fundo)
+                    item.setData(Qt.ItemDataRole.BackgroundRole, brush_fundo)
                     item.setTextAlignment(Qt.AlignmentFlag.AlignCenter if col_idx != 2 else Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
                     
-                    if col_idx == 2 and qtd <= min_q:
+                    if col_idx == 4 and min_q == 0:
+                        item.setText("-")
+
+                    if estoque_baixo:
+                        item.setForeground(QBrush(cor_texto_alerta))
+                        f = item.font()
+                        f.setBold(True)
+                        item.setFont(f)
+
+                    if col_idx == 2 and estoque_baixo:
                         baixo_estoque += 1
-                        item.setForeground(QColor("#B91C1C"))
-                        f = item.font(); f.setBold(True); item.setFont(f)
                     
                     self.tabela.setItem(row_idx, col_idx, item)
                 
@@ -484,7 +708,7 @@ class EstoqueWidget(QWidget):
         
         item_id = self.tabela.item(linha, 0).text()
         if QMessageBox.question(self, "Excluir", "Deseja apagar este item?") == QMessageBox.StandardButton.Yes:
-            conn = sqlite3.connect(self.caminho_db)
+            conn = connect()
             conn.cursor().execute("DELETE FROM itens WHERE id_item = ?", (item_id,))
             conn.commit()
             conn.close()
@@ -522,7 +746,7 @@ class EstoqueWidget(QWidget):
         nova_qtd = (qtd_atual + qtd_movimento) if tipo_db == "ENTRADA" else (qtd_atual - qtd_movimento)
         data_hora_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        conn = sqlite3.connect(self.caminho_db)
+        conn = connect()
         cursor = conn.cursor()
         
         try:
@@ -560,8 +784,8 @@ class EstoqueWidget(QWidget):
         html = """
         <html><head><style>
             table { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; }
-            th, td { border: 1px solid #d1c9b8; padding: 8px; text-align: center; }
-            th { background-color: #e8e0cc; color: #1F2937; }
+            th, td { border: 1px solid #E4DED2; padding: 8px; text-align: center; }
+            th { background-color: #223959; color: #FFFFFF; }
         </style></head><body>
         <h2 style='text-align: center; font-family: Arial; color: #1F2937;'>Relatório de Estoque</h2>
         <table>
@@ -624,7 +848,7 @@ class EstoqueWidget(QWidget):
                 self.tabela.item(row, 0).text(),
                 self.tabela.item(row, 2).text(),
                 int(self.tabela.item(row, 3).text()),
-                int(self.tabela.item(row, 4).text()),
+                0 if self.tabela.item(row, 4).text() == "-" else int(self.tabela.item(row, 4).text()),
                 self.tabela.item(row, 5).text(),
                 self.tabela.item(row, 6).text()
             ])
