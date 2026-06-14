@@ -160,6 +160,86 @@ def table_style(dark=False):
     """
 
 
+def header_banner_style(frame_object_name, dark=False):
+    p = palette(dark)
+    return f"""
+        QFrame#{frame_object_name} {{
+            background-color: {p['header']};
+            border-radius: 8px;
+            border: none;
+        }}
+        QLabel#headerTitulo {{
+            color: {p['header_text']};
+            font-size: 28px;
+            font-weight: 800;
+            border: none;
+            background-color: transparent;
+        }}
+        QLabel#headerSubtitulo {{
+            color: {p['header_muted']};
+            font-size: 14px;
+            border: none;
+            background-color: transparent;
+        }}
+    """
+
+
+def step_card_style(dark=False):
+    p = palette(dark)
+    return f"""
+        QFrame#cardPasso {{
+            background-color: {p['card_alt']};
+            border-radius: 8px;
+            border: 1px solid {p['border']};
+        }}
+        QLabel#numeroPasso {{
+            background-color: {p['soft']};
+            color: {p['accent']};
+            border: 1px solid {p['border']};
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 800;
+        }}
+        QLabel#tituloPasso {{
+            color: {p['text']};
+            font-size: 14px;
+            font-weight: 800;
+            border: none;
+            background-color: transparent;
+        }}
+        QLabel#descPasso {{
+            color: {p['muted']};
+            font-size: 12px;
+            border: none;
+            background-color: transparent;
+        }}
+    """
+
+
+def como_usar_section_style(dark=False):
+    p = palette(dark)
+    return f"""
+        QFrame {{
+            background-color: {p['card']};
+            border-radius: 8px;
+            border: 1px solid {p['border']};
+        }}
+        QLabel#comoTitulo {{
+            color: {p['text']};
+            font-size: 18px;
+            font-weight: 800;
+            border: none;
+            background-color: transparent;
+        }}
+        QLabel#comoSubtitulo {{
+            color: {p['muted']};
+            font-size: 13px;
+            border: none;
+            background-color: transparent;
+        }}
+    """
+
+
 def card_style(dark=False):
     p = palette(dark)
     return f"""

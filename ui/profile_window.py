@@ -13,7 +13,7 @@ from services.usuario_service import (
     obter_usuario_por_id, atualizar_dados_usuario,
     atualizar_senha_usuario, excluir_usuario_db, autenticar_usuario
 )
-from ui.theme import apply_shadow, button_style, card_style, input_style, palette
+from ui.theme import apply_shadow, button_style, card_style, header_banner_style, input_style, palette
 
 
 class PerfilWidget(QWidget):
@@ -145,24 +145,7 @@ class PerfilWidget(QWidget):
         self.dark_mode = dark
         p = palette(dark)
         self.setStyleSheet(f"background-color: {p['bg']}; color: {p['text']};")
-        self.header.setStyleSheet(f"""
-            QFrame#headerPerfil {{
-                background-color: {p['header']};
-                border-radius: 8px;
-                border: none;
-            }}
-            QLabel#headerTitulo {{
-                color: {p['header_text']};
-                font-size: 28px;
-                font-weight: 800;
-                border: none;
-            }}
-            QLabel#headerSubtitulo {{
-                color: {p['header_muted']};
-                font-size: 14px;
-                border: none;
-            }}
-        """)
+        self.header.setStyleSheet(header_banner_style("headerPerfil", dark))
         self.card.setStyleSheet(card_style(dark))
         self.lbl_foto.setStyleSheet(f"""
             QLabel {{

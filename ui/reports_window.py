@@ -7,7 +7,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QTextDocument, QPdfWriter
 
 from services.movimentacao_service import listar_historico
-from ui.theme import apply_shadow, button_style, card_style, input_style, palette, table_style
+from ui.theme import apply_shadow, button_style, card_style, como_usar_section_style, header_banner_style, input_style, palette, step_card_style, table_style
 
 
 class ReportsWindow(QWidget):
@@ -163,66 +163,10 @@ class ReportsWindow(QWidget):
         self.dark_mode = dark
         p = palette(dark)
         self.setStyleSheet(f"background-color: {p['bg']}; color: {p['text']};")
-        self.header.setStyleSheet(f"""
-            QFrame#headerRelatorios {{
-                background-color: {p['header']};
-                border-radius: 8px;
-                border: none;
-            }}
-            QLabel#headerTitulo {{
-                color: {p['header_text']};
-                font-size: 28px;
-                font-weight: 800;
-                border: none;
-            }}
-            QLabel#headerSubtitulo {{
-                color: {p['header_muted']};
-                font-size: 14px;
-                border: none;
-            }}
-        """)
-        self.frame_como_usar.setStyleSheet(f"""
-            QFrame#comoUsarRelatorios {{
-                background-color: {p['card']};
-                border-radius: 8px;
-                border: 1px solid {p['border']};
-            }}
-            QLabel#comoTitulo {{
-                color: {p['text']};
-                font-size: 18px;
-                font-weight: 800;
-                border: none;
-            }}
-            QLabel#comoSubtitulo {{
-                color: {p['muted']};
-                font-size: 13px;
-                border: none;
-            }}
-            QFrame#cardPasso {{
-                background-color: {p['card_alt']};
-                border-radius: 8px;
-                border: 1px solid {p['border']};
-            }}
-            QLabel#numeroPasso {{
-                background-color: {p['soft']};
-                color: {p['accent']};
-                border: 1px solid {p['border']};
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 800;
-            }}
-            QLabel#tituloPasso {{
-                color: {p['text']};
-                font-size: 14px;
-                font-weight: 800;
-                border: none;
-            }}
-            QLabel#descPasso {{
-                color: {p['muted']};
-                font-size: 12px;
-                border: none;
-            }}
-        """)
+        self.header.setStyleSheet(header_banner_style("headerRelatorios", dark))
+        self.frame_como_usar.setStyleSheet(como_usar_section_style(dark))
+        for card in self.frame_como_usar.findChildren(QFrame, "cardPasso"):
+            card.setStyleSheet(step_card_style(dark))
         self.frame_filtros.setStyleSheet(card_style(dark))
         self.lbl_filtros.setStyleSheet(f"color: {p['text']}; font-weight: 800; border: none;")
         for widget in [self.txt_filtro_item, self.combo_filtro_caminho, self.txt_filtro_resp]:

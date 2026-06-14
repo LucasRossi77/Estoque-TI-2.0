@@ -13,7 +13,7 @@ from PyQt6.QtGui import QPixmap
 from services.item_service import buscar_item_por_id, atualizar_item
 from ui.theme import (
     LOCALIZACOES_PADRAO, apply_shadow, button_style, card_style,
-    input_style, palette
+    header_banner_style, input_style, palette
 )
 
 
@@ -203,24 +203,7 @@ class EditItemWidget(QWidget):
         self.setStyleSheet(f"background-color: {p['bg']}; color: {p['text']};")
         self.container.setStyleSheet(f"background-color: {p['bg']};")
         self.scroll.setStyleSheet(f"QScrollArea {{ border: none; background-color: {p['bg']}; }}")
-        self.header.setStyleSheet(f"""
-            QFrame#headerEdicao {{
-                background-color: {p['header']};
-                border-radius: 8px;
-                border: none;
-            }}
-            QLabel#headerTitulo {{
-                color: {p['header_text']};
-                font-size: 28px;
-                font-weight: 800;
-                border: none;
-            }}
-            QLabel#headerSubtitulo {{
-                color: {p['header_muted']};
-                font-size: 14px;
-                border: none;
-            }}
-        """)
+        self.header.setStyleSheet(header_banner_style("headerEdicao", dark))
         self.card.setStyleSheet(card_style(dark))
         self.frame_foto.setStyleSheet(f"""
             QFrame#frameFoto {{

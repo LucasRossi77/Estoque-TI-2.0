@@ -56,14 +56,14 @@ class AppWindow(QMainWindow):
         self.menu_layout.addWidget(self.label_titulo)
 
         # Botões do Menu
-        self.btn_perfil = self.criar_botao_menu("👤   Perfil")
-        self.btn_estoque = self.criar_botao_menu("📦   Estoque")
-        self.btn_operacional = self.criar_botao_menu("🖼️   Operacional")
-        self.btn_relatorios = self.criar_botao_menu("📊   Relatórios")
-        self.btn_dashboard = self.criar_botao_menu("📈   Gráficos")
-        self.btn_modo = self.criar_botao_menu("🌙   Modo Noturno")
+        self.btn_perfil = self.criar_botao_menu("   Perfil")
+        self.btn_estoque = self.criar_botao_menu("   Estoque")
+        self.btn_operacional = self.criar_botao_menu("   Operacional")
+        self.btn_relatorios = self.criar_botao_menu("   Relatórios")
+        self.btn_dashboard = self.criar_botao_menu("   Gráficos")
+        self.btn_modo = self.criar_botao_menu("   Modo Noturno")
 
-        self.btn_sair = self.criar_botao_menu("🚪   Sair")
+        self.btn_sair = self.criar_botao_menu("   Sair")
         
         self.menu_layout.addWidget(self.btn_perfil)
         self.menu_layout.addWidget(self.btn_estoque)

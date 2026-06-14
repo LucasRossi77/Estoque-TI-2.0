@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QBrush
 from database.connection import connect, get_table_columns
-from ui.theme import card_style, input_style, palette, table_style
+from ui.theme import card_style, como_usar_section_style, input_style, palette, step_card_style, table_style
 
 
 class OperacionalWidget(QWidget):
@@ -83,6 +83,7 @@ class OperacionalWidget(QWidget):
             QFrame#headerOperacional QLabel {
                 color: white;
                 border: none;
+                background-color: transparent;
             }
         """)
         self.aplicar_sombra(header, blur=18, opacity=30)
@@ -142,17 +143,20 @@ class OperacionalWidget(QWidget):
                 font-weight: 800;
                 letter-spacing: 0px;
                 border: none;
+                background-color: transparent;
             }}
             QLabel#cardValor {{
                 color: #111827;
                 font-size: 30px;
                 font-weight: 800;
                 border: none;
+                background-color: transparent;
             }}
             QLabel#cardDesc {{
                 color: #6B7280;
                 font-size: 12px;
                 border: none;
+                background-color: transparent;
             }}
         """)
         self.aplicar_sombra(card)
@@ -177,24 +181,6 @@ class OperacionalWidget(QWidget):
     def criar_cards_como_usar(self):
         frame = QFrame()
         frame.setObjectName("comoUsar")
-        frame.setStyleSheet("""
-            QFrame#comoUsar {
-                background-color: #FFFFFF;
-                border-radius: 8px;
-                border: 1px solid #E4DED2;
-            }
-            QLabel#comoTitulo {
-                color: #1F2937;
-                font-size: 18px;
-                font-weight: 800;
-                border: none;
-            }
-            QLabel#comoSubtitulo {
-                color: #6B7280;
-                font-size: 13px;
-                border: none;
-            }
-        """)
         self.aplicar_sombra(frame)
 
         layout = QVBoxLayout(frame)
@@ -227,32 +213,6 @@ class OperacionalWidget(QWidget):
     def criar_card_passo(self, numero, titulo, descricao):
         card = QFrame()
         card.setObjectName("cardPasso")
-        card.setStyleSheet("""
-            QFrame#cardPasso {
-                background-color: #F8FAFC;
-                border-radius: 8px;
-                border: 1px solid #E5E7EB;
-            }
-            QLabel#numeroPasso {
-                background-color: #EFF6FF;
-                color: #1D4ED8;
-                border: 1px solid #BFDBFE;
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 800;
-            }
-            QLabel#tituloPasso {
-                color: #111827;
-                font-size: 14px;
-                font-weight: 800;
-                border: none;
-            }
-            QLabel#descPasso {
-                color: #64748B;
-                font-size: 12px;
-                border: none;
-            }
-        """)
 
         layout = QHBoxLayout(card)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -291,23 +251,27 @@ class OperacionalWidget(QWidget):
                 font-size: 18px;
                 font-weight: 800;
                 border: none;
+                background-color: transparent;
             }
             QLabel#rotuloCampo {
                 color: #374151;
                 font-size: 12px;
                 font-weight: 800;
                 border: none;
+                background-color: transparent;
             }
             QLabel#saldoOrigem {
                 color: #374151;
                 font-size: 13px;
                 font-weight: 700;
                 border: none;
+                background-color: transparent;
             }
             QLabel#dicaTransferencia {
                 color: #6B7280;
                 font-size: 12px;
                 border: none;
+                background-color: transparent;
             }
             QPushButton#btnTransferir {
                 background-color: #2563EB;
@@ -344,6 +308,18 @@ class OperacionalWidget(QWidget):
         self.cb_origem = QComboBox()
         self.cb_origem.addItems(["Estoque Geral", "Em Uso", "Manutenção"])
         layout_transf.addLayout(self.criar_campo("Origem", self.cb_origem), stretch=2)
+
+        # ADICIONADO: Seta direcional para deixar o fluxo de transição intuitivo e visual
+        vbox_seta = QVBoxLayout()
+        lbl_espaco_seta = QLabel(" ")
+        lbl_espaco_seta.setObjectName("rotuloCampo") 
+        vbox_seta.addWidget(lbl_espaco_seta)
+        
+        lbl_seta = QLabel("➔")
+        lbl_seta.setStyleSheet("font-size: 18px; font-weight: bold; color: #9CA3AF; background-color: transparent;")
+        lbl_seta.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        vbox_seta.addWidget(lbl_seta)
+        layout_transf.addLayout(vbox_seta)
 
         self.cb_destino = QComboBox()
         self.cb_destino.addItems(["Em Uso", "Manutenção", "Estoque Geral"])
@@ -462,6 +438,7 @@ class OperacionalWidget(QWidget):
             QFrame#headerOperacional QLabel {{
                 color: {p['header_text']};
                 border: none;
+                background-color: transparent;
             }}
         """)
         for frame in self.findChildren(QFrame, "cardResumo"):
@@ -476,55 +453,18 @@ class OperacionalWidget(QWidget):
                     font-size: 30px;
                     font-weight: 800;
                     border: none;
+                    background-color: transparent;
                 }}
                 QLabel#cardDesc {{
                     color: {p['muted']};
                     font-size: 12px;
                     border: none;
+                    background-color: transparent;
                 }}
             """)
-        self.findChild(QFrame, "comoUsar").setStyleSheet(f"""
-            QFrame#comoUsar {{
-                background-color: {p['card']};
-                border-radius: 8px;
-                border: 1px solid {p['border']};
-            }}
-            QLabel#comoTitulo {{
-                color: {p['text']};
-                font-size: 18px;
-                font-weight: 800;
-                border: none;
-            }}
-            QLabel#comoSubtitulo {{
-                color: {p['muted']};
-                font-size: 13px;
-                border: none;
-            }}
-            QFrame#cardPasso {{
-                background-color: {p['card_alt']};
-                border-radius: 8px;
-                border: 1px solid {p['border']};
-            }}
-            QLabel#numeroPasso {{
-                background-color: {p['soft']};
-                color: {p['accent']};
-                border: 1px solid {p['border']};
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 800;
-            }}
-            QLabel#tituloPasso {{
-                color: {p['text']};
-                font-size: 14px;
-                font-weight: 800;
-                border: none;
-            }}
-            QLabel#descPasso {{
-                color: {p['muted']};
-                font-size: 12px;
-                border: none;
-            }}
-        """)
+        self.findChild(QFrame, "comoUsar").setStyleSheet(como_usar_section_style(dark))
+        for card in self.findChildren(QFrame, "cardPasso"):
+            card.setStyleSheet(step_card_style(dark))
         self.findChild(QFrame, "transferencia").setStyleSheet(card_style(dark))
         for widget in [self.cb_item, self.cb_origem, self.cb_destino, self.spin_qtd]:
             widget.setStyleSheet(input_style(dark))
@@ -693,13 +633,13 @@ class OperacionalWidget(QWidget):
 
         if not origem_valida:
             self.lbl_dica_transferencia.setText("Escolha origem e destino diferentes para liberar a transferência.")
-            self.lbl_dica_transferencia.setStyleSheet(f"color: {p['danger']}; font-size: 12px; border: none;")
+            self.lbl_dica_transferencia.setStyleSheet(f"color: {p['danger']}; font-size: 12px; border: none; background: transparent;")
         elif not tem_saldo:
             self.lbl_dica_transferencia.setText("A origem selecionada está sem saldo para este item.")
-            self.lbl_dica_transferencia.setStyleSheet(f"color: {p['danger']}; font-size: 12px; border: none;")
+            self.lbl_dica_transferencia.setStyleSheet(f"color: {p['danger']}; font-size: 12px; border: none; background: transparent;")
         else:
             self.lbl_dica_transferencia.setText("Pronto para transferir. A tabela será atualizada automaticamente.")
-            self.lbl_dica_transferencia.setStyleSheet(f"color: {p['good']}; font-size: 12px; border: none;")
+            self.lbl_dica_transferencia.setStyleSheet(f"color: {p['good']}; font-size: 12px; border: none; background: transparent;")
 
     def efetuar_transferencia(self):
         if self.cb_item.count() == 0:

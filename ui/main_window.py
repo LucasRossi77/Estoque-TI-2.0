@@ -12,7 +12,7 @@ from PyQt6.QtGui import (
     QTextDocument, QPdfWriter
 )
 from database.connection import DB_PATH, connect, get_table_columns
-from ui.theme import LOCALIZACOES_PADRAO, apply_shadow, button_style, card_style, input_style, palette, table_style
+from ui.theme import LOCALIZACOES_PADRAO, apply_shadow, button_style, card_style, como_usar_section_style, header_banner_style, input_style, palette, step_card_style, table_style
 
 class VisaoBlocosWidget(QWidget):
     def __init__(self, caminho_db, pasta_fotos):
@@ -444,67 +444,11 @@ class EstoqueWidget(QWidget):
         self.txt_filtro_caixa.setStyleSheet(input_style(dark))
         self.tabela.setStyleSheet(table_style(dark))
 
-        self.findChild(QFrame, "headerEstoque").setStyleSheet(f"""
-            QFrame#headerEstoque {{
-                background-color: {p['header']};
-                border-radius: 8px;
-                border: none;
-            }}
-            QLabel#headerTitulo {{
-                color: {p['header_text']};
-                font-size: 28px;
-                font-weight: 800;
-                border: none;
-            }}
-            QLabel#headerSubtitulo {{
-                color: {p['header_muted']};
-                font-size: 14px;
-                border: none;
-            }}
-        """)
+        self.findChild(QFrame, "headerEstoque").setStyleSheet(header_banner_style("headerEstoque", dark))
 
-        self.findChild(QFrame, "comoUsarEstoque").setStyleSheet(f"""
-            QFrame#comoUsarEstoque {{
-                background-color: {p['card']};
-                border-radius: 8px;
-                border: 1px solid {p['border']};
-            }}
-            QLabel#comoTitulo {{
-                color: {p['text']};
-                font-size: 18px;
-                font-weight: 800;
-                border: none;
-            }}
-            QLabel#comoSubtitulo {{
-                color: {p['muted']};
-                font-size: 13px;
-                border: none;
-            }}
-            QFrame#cardPasso {{
-                background-color: {p['card_alt']};
-                border-radius: 8px;
-                border: 1px solid {p['border']};
-            }}
-            QLabel#numeroPasso {{
-                background-color: {p['soft']};
-                color: {p['accent']};
-                border: 1px solid {p['border']};
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 800;
-            }}
-            QLabel#tituloPasso {{
-                color: {p['text']};
-                font-size: 14px;
-                font-weight: 800;
-                border: none;
-            }}
-            QLabel#descPasso {{
-                color: {p['muted']};
-                font-size: 12px;
-                border: none;
-            }}
-        """)
+        self.findChild(QFrame, "comoUsarEstoque").setStyleSheet(como_usar_section_style(dark))
+        for card in self.findChildren(QFrame, "cardPasso"):
+            card.setStyleSheet(step_card_style(dark))
 
         for card in self.cards_kpi:
             card.setStyleSheet(card_style(dark))

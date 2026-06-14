@@ -1,20 +1,45 @@
 # MySQL
 
-Por padrao o sistema continua usando `database.db` com SQLite.
+Por padrao o sistema usa `database.db` (SQLite). Para usar MySQL, instale o **MySQL Server**
+e inicie o app com `.\start-mysql.ps1` ou defina `DB_BACKEND=mysql`.
 
-Para testar com MySQL, instale a dependencia e defina as variaveis de ambiente antes de iniciar o app.
-Se o `venv` nao estiver ativado, use `.\venv\Scripts\pip.exe` e `.\venv\Scripts\python.exe`
-no lugar de `pip` e `python`.
+## Inicio rapido (Windows)
+
+1. Instale e inicie o MySQL Server (porta 3306).
+2. Instale as dependencias:
 
 ```powershell
-pip install PyMySQL
+.\venv\Scripts\pip.exe install -r requirements.txt
+```
+
+3. Ajuste a senha em `start-mysql.ps1` (variavel `MYSQL_PASSWORD`).
+4. Crie as tabelas e migre os dados do SQLite, se necessario:
+
+```powershell
+.\start-mysql.ps1   # ou configure as variaveis abaixo manualmente
+
+# Em outro terminal, com as mesmas variaveis MYSQL_*:
+.\venv\Scripts\python.exe -m database.create_tables
+.\venv\Scripts\python.exe -m database.migrate_sqlite_to_mysql
+```
+
+5. Inicie o app:
+
+```powershell
+.\start-mysql.ps1
+```
+
+## Variaveis de ambiente
+
+```powershell
 $env:DB_BACKEND = "mysql"
 $env:MYSQL_HOST = "localhost"
 $env:MYSQL_PORT = "3306"
 $env:MYSQL_USER = "root"
 $env:MYSQL_PASSWORD = 'sua_senha'
 $env:MYSQL_DATABASE = "estoque"
-python main.py
+$env:MYSQL_AUTO_CREATE_DATABASE = "1"
+.\venv\Scripts\python.exe main.py
 ```
 
 No PowerShell, use aspas simples na senha se ela tiver caracteres como `$`, por exemplo:
@@ -23,16 +48,21 @@ No PowerShell, use aspas simples na senha se ela tiver caracteres como `$`, por 
 $env:MYSQL_PASSWORD = 'TI@Mu$eu%'
 ```
 
-Se quiser que o sistema tente criar o banco automaticamente quando ele ainda nao existir:
+## Migrar dados do SQLite
+
+Com as variaveis `MYSQL_*` configuradas:
 
 ```powershell
-$env:MYSQL_AUTO_CREATE_DATABASE = "1"
-```
-
-Para copiar os dados atuais do SQLite para o MySQL configurado:
-
-```powershell
-python -m database.migrate_sqlite_to_mysql
+.\venv\Scripts\python.exe -m database.migrate_sqlite_to_mysql
 ```
 
 O migrador usa `INSERT IGNORE`, entao registros que ja existirem no MySQL nao sao duplicados.
+
+## Voltar ao SQLite (legado)
+
+```powershell
+$env:DB_BACKEND = "sqlite"
+.\venv\Scripts\python.exe main.py
+```
+
+O arquivo `database.db` na raiz do projeto sera usado novamente.

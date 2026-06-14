@@ -14,7 +14,7 @@ matplotlib.use('QtAgg')
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from database.connection import connect, get_table_columns
-from ui.theme import apply_shadow, button_style, card_style, input_style, palette, table_style
+from ui.theme import apply_shadow, button_style, card_style, como_usar_section_style, header_banner_style, input_style, palette, step_card_style, table_style
 
 # ==========================================
 # DIALOG POP-UP PARA MOSTRAR AS CAIXAS (DRILL-DOWN)
@@ -268,9 +268,6 @@ class DashboardWidget(QWidget):
             conn.commit()
             conn.close()
 
-    # ==========================================
-    # DETALHES DOS ITENS (NOVA FUNCIONALIDADE)
-    # ==========================================
     def criar_secao_lista_itens(self):
         lbl_titulo_lista = QLabel("Catálogo e Detalhes dos Itens")
         lbl_titulo_lista.setStyleSheet("font-size: 20px; font-weight: bold; color: #1F2937; margin-top: 20px; background: transparent;")
@@ -480,66 +477,10 @@ class DashboardWidget(QWidget):
         self.setStyleSheet(f"background-color: {p['bg']}; color: {p['text']};")
         self.scroll_area.setStyleSheet(f"QScrollArea {{ border: none; background-color: {p['bg']}; }}")
         self.content_widget.setStyleSheet(f"background-color: {p['bg']};")
-        self.header.setStyleSheet(f"""
-            QFrame#headerGraficos {{
-                background-color: {p['header']};
-                border-radius: 8px;
-                border: none;
-            }}
-            QLabel#headerTitulo {{
-                color: {p['header_text']};
-                font-size: 28px;
-                font-weight: 800;
-                border: none;
-            }}
-            QLabel#headerSubtitulo {{
-                color: {p['header_muted']};
-                font-size: 14px;
-                border: none;
-            }}
-        """)
-        self.frame_como_usar.setStyleSheet(f"""
-            QFrame#comoUsarGraficos {{
-                background-color: {p['card']};
-                border-radius: 8px;
-                border: 1px solid {p['border']};
-            }}
-            QLabel#comoTitulo {{
-                color: {p['text']};
-                font-size: 18px;
-                font-weight: 800;
-                border: none;
-            }}
-            QLabel#comoSubtitulo {{
-                color: {p['muted']};
-                font-size: 13px;
-                border: none;
-            }}
-            QFrame#cardPasso {{
-                background-color: {p['card_alt']};
-                border-radius: 8px;
-                border: 1px solid {p['border']};
-            }}
-            QLabel#numeroPasso {{
-                background-color: {p['soft']};
-                color: {p['accent']};
-                border: 1px solid {p['border']};
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 800;
-            }}
-            QLabel#tituloPasso {{
-                color: {p['text']};
-                font-size: 14px;
-                font-weight: 800;
-                border: none;
-            }}
-            QLabel#descPasso {{
-                color: {p['muted']};
-                font-size: 12px;
-                border: none;
-            }}
-        """)
+        self.header.setStyleSheet(header_banner_style("headerGraficos", dark))
+        self.frame_como_usar.setStyleSheet(como_usar_section_style(dark))
+        for card in self.frame_como_usar.findChildren(QFrame, "cardPasso"):
+            card.setStyleSheet(step_card_style(dark))
 
         self.frame_filtros.setStyleSheet(card_style(dark))
         for combo in [self.combo_periodo, self.combo_loc, self.combo_caixa]:
@@ -911,10 +852,10 @@ class DashboardWidget(QWidget):
         ax.tick_params(axis='y', colors=c["muted"])
         
         fig.tight_layout()
-        fig.subplots_adjust(bottom=0.3) # Isso força o matplotlib a dar mais espaço na parte inferior para o texto não cortar!
+        fig.subplots_adjust(bottom=0.3) 
         
         canvas = FigureCanvasQTAgg(fig)
-        canvas.setMinimumHeight(280) # Evita que o gráfico seja esmagado pelo layout da tela
+        canvas.setMinimumHeight(280) 
         return canvas
 
     def criar_grafico_pizza(self, where_itens, params_itens):
@@ -1142,9 +1083,6 @@ class DashboardWidget(QWidget):
         canvas.setMinimumHeight(280)
         return canvas
 
-    # ==========================================
-    # UTILITÁRIOS DE INTERFACE
-    # ==========================================
     def criar_card_kpi(self, titulo, cor_destaque):
         card = QFrame()
         card.setFixedHeight(110)

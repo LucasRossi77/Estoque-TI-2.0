@@ -151,6 +151,14 @@ def _connect_mysql():
             finally:
                 server_conn.close()
             return MySQLConnectionAdapter(pymysql.connect(**_mysql_config()))
+        if exc.args and exc.args[0] == 2003:
+            host = _mysql_config()["host"]
+            port = _mysql_config()["port"]
+            raise RuntimeError(
+                f"Nao foi possivel conectar ao MySQL em {host}:{port}. "
+                "Verifique se o MySQL Server esta instalado e em execucao. "
+                "Para usar o SQLite local, remova DB_BACKEND=mysql ou execute apenas: python main.py"
+            ) from exc
         raise
 
 
