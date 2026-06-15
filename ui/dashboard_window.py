@@ -144,7 +144,7 @@ class DashboardWidget(QWidget):
         layout_kpis_operacional.setSpacing(20)
         self.card_uso, self.lbl_val_uso = self.criar_card_kpi("UNIDADES EM USO", "#059669")
         self.card_manutencao, self.lbl_val_manutencao = self.criar_card_kpi("UNIDADES EM MANUTENÇÃO", "#D97706")
-        self.card_cobertura, self.lbl_val_cobertura = self.criar_card_kpi("FALTA PARA 50% DO USO", "#DC2626")
+        self.card_cobertura, self.lbl_val_cobertura = self.criar_card_kpi("FALTA PARA 10% DO USO", "#DC2626")
         layout_kpis_operacional.addWidget(self.card_uso)
         layout_kpis_operacional.addWidget(self.card_manutencao)
         layout_kpis_operacional.addWidget(self.card_cobertura)
@@ -157,7 +157,7 @@ class DashboardWidget(QWidget):
         self.frame_baixo, self.layout_canvas_baixo = self.criar_frame_grafico("Top 5 - Estoque Baixo")
         self.frame_alto, self.layout_canvas_alto = self.criar_frame_grafico("Top 5 - Maior Volume")
         self.frame_operacional, self.layout_canvas_operacional = self.criar_frame_grafico("Estoque x Em Uso x Manutenção")
-        self.frame_cobertura, self.layout_canvas_cobertura = self.criar_frame_grafico("Cobertura do Estoque para 50% do Uso")
+        self.frame_cobertura, self.layout_canvas_cobertura = self.criar_frame_grafico("Cobertura do Estoque para 10% do Uso")
         self.frame_local, self.layout_canvas_local = self.criar_frame_grafico("Distribuição por Localização (Clique na fatia)")
         self.frame_mov, self.layout_canvas_mov = self.criar_frame_grafico("Movimentações no Período (Entradas vs Saídas)")
 
@@ -218,7 +218,7 @@ class DashboardWidget(QWidget):
         passos = [
             ("1", "Filtre", "Refine por período, localização ou caixa."),
             ("2", "Compare", "Veja estoque, uso e manutenção lado a lado."),
-            ("3", "Priorize", "O gráfico de cobertura aponta quando falta estoque para 50% do uso."),
+            ("3", "Priorize", "O gráfico de cobertura aponta quando falta estoque para 10% do uso."),
         ]
         for idx, (numero, titulo, descricao) in enumerate(passos):
             grid.addWidget(self.criar_card_passo(numero, titulo, descricao), 0, idx)
@@ -353,9 +353,9 @@ class DashboardWidget(QWidget):
         meta_cobertura = math.ceil(em_uso / 2)
         falta_cobertura = max(0, meta_cobertura - qtd)
         texto_cobertura = (
-            f"<span style='color: #B91C1C; font-weight: bold;'>Falta {falta_cobertura} para cobrir 50% do uso</span>"
+            f"<span style='color: #B91C1C; font-weight: bold;'>Falta {falta_cobertura} para cobrir 10% do uso</span>"
             if falta_cobertura > 0
-            else "<span style='color: #047857; font-weight: bold;'>Cobertura OK para 50% do uso</span>"
+            else "<span style='color: #047857; font-weight: bold;'>Cobertura OK para 10% do uso</span>"
         )
         loc = loc if loc else "Não Definida"
         caixa = caixa if caixa else "Não Definida"
@@ -785,7 +785,7 @@ class DashboardWidget(QWidget):
         total_falta = sum(item["falta"] for item in calculados)
         calculados = [item for item in calculados if item["falta"] > 0]
         if not calculados:
-            return self.canvas_sem_dados("Todos os itens cobrem 50% do uso")
+            return self.canvas_sem_dados("Todos os itens cobrem 10% do uso")
 
         calculados.sort(key=lambda item: (item["falta"], item["uso"]), reverse=True)
         calculados = list(reversed(calculados[:8]))

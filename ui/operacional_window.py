@@ -118,7 +118,7 @@ class OperacionalWidget(QWidget):
             "Manutenção", "Itens em reparo", "#D97706"
         )
         self.card_cobertura, self.lbl_total_alertas, self.lbl_desc_alertas = self.criar_card_resumo(
-            "Cobertura", "Meta: 50% do uso", "#DC2626"
+            "Cobertura", "Meta: 10% do uso", "#DC2626"
         )
 
         layout.addWidget(self.card_estoque)
@@ -603,8 +603,8 @@ class OperacionalWidget(QWidget):
         necessario = math.ceil(uso / 2)
         falta = max(0, necessario - estoque)
         if falta > 0:
-            return f"Falta {falta} p/ 50%", p["danger"], p["danger_bg"], falta
-        return "Cobre 50%", p["good"], p["ok_bg"], 0
+            return f"Falta {falta} p/ 10%", p["danger"], p["danger_bg"], falta
+        return "Cobre 10%", p["good"], p["ok_bg"], 0
 
     def atualizar_saldo_origem(self):
         if not hasattr(self, "cb_item") or self.cb_item.count() == 0:

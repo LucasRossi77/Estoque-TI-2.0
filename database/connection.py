@@ -1,11 +1,15 @@
 import os
+import sys  # Adicione o sys aqui
 import re
 import sqlite3
 
+# Identifica se o app está rodando como script ou como um executável compactado
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DB_PATH = os.path.join(BASE_DIR, "database.db")
-
 
 def get_db_backend():
     return os.getenv("DB_BACKEND", "sqlite").strip().lower()
