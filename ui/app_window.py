@@ -178,10 +178,24 @@ class AppWindow(QMainWindow):
 
     def mudar_tela(self, index):
         self.stacked_widget.setCurrentIndex(index)
-        if index == 2:
+        
+        # Força a atualização da tela de Estoque (Tabela)
+        if index == 1:
+            self.tela_estoque.carregar_itens()
+            
+        # Força a atualização da tela de Relatórios
+        elif index == 2:
             self.tela_relatorios.carregar_dados()
+            
+        # Força a atualização dos Gráficos (Dashboard)
+        elif index == 4:
+            if hasattr(self.tela_dashboard, 'carregar_dados'):
+                self.tela_dashboard.carregar_dados()
+                
+        # Força a atualização da tela Operacional
         elif index == 5:
             self.tela_operacional.carregar_dados()
+            
         self.animar_tela_atual()
 
     def animar_tela_atual(self):

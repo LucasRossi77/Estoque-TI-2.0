@@ -114,16 +114,31 @@ class VisaoBlocosWidget(QWidget):
         
         conn = connect()
         cursor = conn.cursor()
-        cursor.execute("SELECT nome, foto, quantidade, quantidade_minima FROM itens WHERE localizacao = ? AND caixa = ?", (self.local_selecionado, caixa))
+        # Adicionado o em_uso na busca
+        cursor.execute("SELECT nome, foto, quantidade, quantidade_minima, em_uso FROM itens WHERE localizacao = ? AND caixa = ?", (self.local_selecionado, caixa))
         itens = cursor.fetchall()
         conn.close()
 
         for index, row in enumerate(itens):
             card = QFrame()
             card.setFixedSize(160, 200)
-            qtd = int(row['quantidade'] or 0)
-            q_min = int(row['quantidade_minima'] or 0)
-            estoque_baixo = q_min > 0 and qtd <= q_min
+            
+            # Tratamento de erro para garantir números inteiros
+            try: qtd = int(row['quantidade'] or 0)
+            except: qtd = 0
+            
+            try: em_uso = int(row['em_uso'] or 0) if 'em_uso' in row.keys() else 0
+            except: em_uso = 0
+
+            # Lógica Dinâmica: 10% do que está em uso
+            if em_uso > 0:
+                q_min_automatico = max(1, int(em_uso * 0.10))
+                estoque_baixo = qtd <= q_min_automatico
+                texto_minimo = str(q_min_automatico)
+            else:
+                estoque_baixo = False
+                texto_minimo = "-"
+            
             p = palette(self.dark_mode)
             if estoque_baixo:
                 card.setStyleSheet(f"""
@@ -155,8 +170,7 @@ class VisaoBlocosWidget(QWidget):
             lbl_n.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lbl_n.setStyleSheet(f"font-weight: bold; font-size: 12px; border: none; color: {palette(self.dark_mode)['text']};")
             
-            cor = "#EF4444" if q_min > 0 and qtd <= q_min else "#10B981"
-            texto_minimo = q_min if q_min > 0 else "sem mínimo"
+            cor = "#EF4444" if estoque_baixo else "#10B981"
             lbl_q = QLabel(f"Qtd: {qtd} (Mín: {texto_minimo})")
             lbl_q.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lbl_q.setStyleSheet(f"color: {cor}; font-weight: bold; font-size: 11px; border: none;")
@@ -167,7 +181,6 @@ class VisaoBlocosWidget(QWidget):
             
             linha, coluna = divmod(index, 5)
             self.layout_grid.addWidget(card, linha, coluna)
-
     def voltar_nivel(self):
         if self.nivel_atual == "ITEM": self.carregar_caixas(self.local_selecionado)
         elif self.nivel_atual == "CAIXA": self.carregar_localizacoes()
@@ -355,6 +368,11 @@ class EstoqueWidget(QWidget):
         self.carregar_itens()
         self.aplicar_tema(self.dark_mode)
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        # Sempre que essa tela for exibida, recarrega a tabela de itens
+        self.carregar_itens()
+
     def criar_cabecalho(self):
         frame = QFrame()
         frame.setObjectName("headerEstoque")
@@ -528,117 +546,108 @@ class EstoqueWidget(QWidget):
         self.carregar_itens()
 
     def carregar_itens(self):
+        self.tabela.setRowCount(0)
         conn = connect()
         cursor = conn.cursor()
         
-        try:
-            colunas = [coluna.lower() for coluna in get_table_columns("itens")]
+        f_nome = f"%{self.txt_filtro_nome.text()}%"
+        f_caixa = f"%{self.txt_filtro_caixa.text()}%"
+        
+        texto_local = self.combo_filtro_local.currentText()
+        if texto_local == "Todos":
+            f_local = "%%"
+        else:
+            f_local = f"%{texto_local}%"
             
-            col_nome = 'nome' if 'nome' in colunas else colunas[1]
-            col_local = 'localizacao' if 'localizacao' in colunas else (colunas[4] if len(colunas) > 4 else None)
-            col_caixa = 'caixa' if 'caixa' in colunas else ('categoria' if 'categoria' in colunas else None)
+        # Adicionado o em_uso na busca SQL principal da tabela
+        cursor.execute("""
+            SELECT id_item, foto, nome, quantidade, quantidade_minima, localizacao, caixa, em_uso 
+            FROM itens 
+            WHERE nome LIKE ? AND localizacao LIKE ? AND caixa LIKE ? 
+            ORDER BY id_item DESC
+        """, (f_nome, f_local, f_caixa))
+        
+        dados = cursor.fetchall()
+        conn.close()
+
+        total_unidades = 0
+        baixo_estoque = 0
+
+        for row_idx, row in enumerate(dados):
+            self.tabela.insertRow(row_idx)
+            self.tabela.setRowHeight(row_idx, 100) 
+
+            try: qtd = int(row['quantidade'])
+            except: qtd = 0
             
-            f_nome = f"%{self.txt_filtro_nome.text()}%"
-            f_caixa = f"%{self.txt_filtro_caixa.text()}%"
-            
-            texto_local = self.combo_filtro_local.currentText()
-            if texto_local == "Todos":
-                f_local = "%%"
+            try: em_uso = int(row['em_uso']) if 'em_uso' in row.keys() else 0
+            except: em_uso = 0
+
+            # LÓGICA DINÂMICA: 10% do que está em uso
+            if em_uso > 0:
+                q_min_automatico = max(1, int(em_uso * 0.10))
+                estoque_baixo = qtd <= q_min_automatico
+                texto_minimo = str(q_min_automatico)
             else:
-                f_local = f"%{texto_local}%"
+                estoque_baixo = False
+                texto_minimo = "-"
 
-            query = f"SELECT * FROM itens WHERE {col_nome} LIKE ?"
-            params = [f_nome]
-            if col_local:
-                query += f" AND {col_local} LIKE ?"
-                params.append(f_local)
-            if col_caixa:
-                query += f" AND {col_caixa} LIKE ?"
-                params.append(f_caixa)
+            cor_alerta = "#3B1117" if self.dark_mode else "#FEE2E2"
+            cor_normal = palette(self.dark_mode)["card"]
+            cor_fundo = QColor(cor_alerta if estoque_baixo else cor_normal)
+            cor_texto_alerta = QColor("#FCA5A5" if self.dark_mode else "#7F1D1D")
+            brush_fundo = QBrush(cor_fundo)
 
-            cursor.execute(query, params)
-            dados = cursor.fetchall()
-            
-            self.tabela.setRowCount(0)
-            total_unidades = 0
-            baixo_estoque = 0
-            
-            for row_idx, row in enumerate(dados):
-                self.tabela.insertRow(row_idx)
-                self.tabela.setRowHeight(row_idx, 100) 
+            item_id = QTableWidgetItem(str(row[0]))
+            item_id.setBackground(brush_fundo)
+            item_id.setData(Qt.ItemDataRole.BackgroundRole, brush_fundo)
+            if estoque_baixo:
+                item_id.setForeground(QBrush(cor_texto_alerta))
+            self.tabela.setItem(row_idx, 0, item_id)
 
-                try: qtd = int(row['quantidade'])
-                except: qtd = 0
-                try: min_q = int(row['quantidade_minima'])
-                except: min_q = 0
+            item_foto = QTableWidgetItem("")
+            item_foto.setBackground(brush_fundo)
+            item_foto.setData(Qt.ItemDataRole.BackgroundRole, brush_fundo)
+            self.tabela.setItem(row_idx, 1, item_foto)
 
-                estoque_baixo = min_q > 0 and qtd <= min_q
-                cor_alerta = "#3B1117" if self.dark_mode else "#FEE2E2"
-                cor_normal = palette(self.dark_mode)["card"]
-                cor_fundo = QColor(cor_alerta if estoque_baixo else cor_normal)
-                cor_texto_alerta = QColor("#FCA5A5" if self.dark_mode else "#7F1D1D")
-                brush_fundo = QBrush(cor_fundo)
+            label_foto = QLabel()
+            label_foto.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label_foto.setStyleSheet(f"background-color: {cor_fundo.name()}; border: none;")
+            if 'foto' in row.keys() and row['foto']:
+                caminho_c = os.path.join(self.pasta_fotos, row['foto'])
+                if os.path.exists(caminho_c):
+                    pixmap = QPixmap(caminho_c).scaled(90, 90, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                    label_foto.setPixmap(pixmap)
+            self.tabela.setCellWidget(row_idx, 1, label_foto)
 
-                item_id = QTableWidgetItem(str(row[0]))
-                item_id.setBackground(brush_fundo)
-                item_id.setData(Qt.ItemDataRole.BackgroundRole, brush_fundo)
+            cols_mapping = {2: 'nome', 3: 'quantidade', 4: 'quantidade_minima', 5: 'localizacao', 6: 'caixa'}
+            for col_idx, col_name in cols_mapping.items():
+                if col_idx == 4:
+                    val = texto_minimo # Aqui exibimos o '-' ou o número automático calculado
+                else:
+                    val = str(row[col_name]) if col_name in row.keys() and row[col_name] is not None else ""
+                    
+                item = QTableWidgetItem(val)
+                item.setBackground(brush_fundo)
+                item.setData(Qt.ItemDataRole.BackgroundRole, brush_fundo)
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter if col_idx != 2 else Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+
                 if estoque_baixo:
-                    item_id.setForeground(QBrush(cor_texto_alerta))
-                self.tabela.setItem(row_idx, 0, item_id)
+                    item.setForeground(QBrush(cor_texto_alerta))
+                    f = item.font()
+                    f.setBold(True)
+                    item.setFont(f)
 
-                item_foto = QTableWidgetItem("")
-                item_foto.setBackground(brush_fundo)
-                item_foto.setData(Qt.ItemDataRole.BackgroundRole, brush_fundo)
-                self.tabela.setItem(row_idx, 1, item_foto)
-
-                label_foto = QLabel()
-                label_foto.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                label_foto.setStyleSheet(f"background-color: {cor_fundo.name()}; border: none;")
-                if 'foto' in colunas and row['foto']:
-                    caminho_c = os.path.join(self.pasta_fotos, row['foto'])
-                    if os.path.exists(caminho_c):
-                        pixmap = QPixmap(caminho_c).scaled(90, 90, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                        label_foto.setPixmap(pixmap)
-                self.tabela.setCellWidget(row_idx, 1, label_foto)
-
-                cols_mapping = {2: col_nome, 3: 'quantidade', 4: 'quantidade_minima', 5: col_local, 6: col_caixa}
-                for col_idx, col_name in cols_mapping.items():
-                    val = str(row[col_name]) if col_name and row[col_name] is not None else ""
-                    item = QTableWidgetItem(val)
-                    item.setBackground(brush_fundo)
-                    item.setData(Qt.ItemDataRole.BackgroundRole, brush_fundo)
-                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter if col_idx != 2 else Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-                    
-                    if col_idx == 4 and min_q == 0:
-                        item.setText("-")
-
-                    if estoque_baixo:
-                        item.setForeground(QBrush(cor_texto_alerta))
-                        f = item.font()
-                        f.setBold(True)
-                        item.setFont(f)
-
-                    if col_idx == 2 and estoque_baixo:
-                        baixo_estoque += 1
-                    
-                    self.tabela.setItem(row_idx, col_idx, item)
+                if col_idx == 2 and estoque_baixo:
+                    baixo_estoque += 1
                 
-                total_unidades += qtd
+                self.tabela.setItem(row_idx, col_idx, item)
+            
+            total_unidades += qtd
 
-            hoje = datetime.now().strftime("%Y-%m-%d")
-            cursor.execute("SELECT COUNT(*) FROM movimentacoes WHERE data LIKE ?", (f"{hoje}%",))
-            total_mov_hoje = cursor.fetchone()[0]
-
-            self.lbl_total_itens.setText(str(len(dados)))
-            self.lbl_unidades.setText(str(total_unidades))
-            self.lbl_estoque_baixo.setText(str(baixo_estoque))
-            self.lbl_movimentacoes.setText(str(total_mov_hoje)) 
-
-        except Exception as e:
-            print(f"❌ Erro ao carregar: {e}")
-        finally:
-            conn.close()
-
+        self.lbl_total_itens.setText(str(len(dados)))
+        self.lbl_unidades.setText(str(total_unidades))
+        self.lbl_estoque_baixo.setText(str(baixo_estoque))
     def editar_selecionado(self):
         linha = self.tabela.currentRow()
         if linha >= 0:
@@ -787,15 +796,19 @@ class EstoqueWidget(QWidget):
         for row in range(self.tabela.rowCount()):
             if self.tabela.isRowHidden(row):
                 continue
+                
+            texto_minimo = self.tabela.item(row, 4).text()
+            # Retorna zero no excel se na tela estiver com o traço "-"
+            qtd_minima_excel = 0 if texto_minimo == "-" else int(texto_minimo)
             
             ws.append([
                 self.tabela.item(row, 0).text(),
                 self.tabela.item(row, 2).text(),
                 int(self.tabela.item(row, 3).text()),
-                0 if self.tabela.item(row, 4).text() == "-" else int(self.tabela.item(row, 4).text()),
+                qtd_minima_excel,
                 self.tabela.item(row, 5).text(),
                 self.tabela.item(row, 6).text()
             ])
             
         wb.save(caminho)
-        QMessageBox.information(self, "Sucesso", "Planilha exportada com sucesso!")
+        QMessageBox.information(self, "Sucesso", "Relatório exportado para Excel com sucesso!")

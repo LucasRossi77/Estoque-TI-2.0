@@ -55,7 +55,7 @@ class AddItemWidget(QWidget):
         self.lbl_header_titulo = QLabel("Novo Item")
         self.lbl_header_titulo.setObjectName("headerTitulo")
         self.lbl_header_subtitulo = QLabel(
-            "Cadastre um item com foto, localização e regra de estoque mínimo."
+            "Cadastre um item com foto, localização e cálculo automático de estoque mínimo."
         )
         self.lbl_header_subtitulo.setObjectName("headerSubtitulo")
         self.lbl_header_subtitulo.setWordWrap(True)
@@ -97,7 +97,7 @@ class AddItemWidget(QWidget):
         self.btn_foto.clicked.connect(self.selecionar_foto)
 
         self.lbl_dica_minimo = QLabel(
-            "A cobertura operacional é calculada automaticamente como 50% do que estiver em uso."
+            "O estoque mínimo operacional é calculado automaticamente como 10% da quantidade inicial."
         )
         self.lbl_dica_minimo.setWordWrap(True)
 
@@ -121,20 +121,12 @@ class AddItemWidget(QWidget):
         self.quantidade = QSpinBox()
         self.quantidade.setMaximum(999999)
 
-        self.quantidade_minima = QSpinBox()
-        self.quantidade_minima.setMaximum(999999)
-        self.check_sem_minimo = QCheckBox("Este item não precisa de estoque mínimo")
-        self.check_sem_minimo.stateChanged.connect(self.atualizar_estado_minimo)
-
         layout_form.addWidget(self.criar_label("Caixa"), 0, 0)
         layout_form.addWidget(self.caixa, 1, 0)
         layout_form.addWidget(self.criar_label("Localização"), 0, 1)
         layout_form.addWidget(self.localizacao, 1, 1)
         layout_form.addWidget(self.criar_label("Quantidade inicial"), 2, 0)
         layout_form.addWidget(self.quantidade, 3, 0)
-        layout_form.addWidget(self.criar_label("Estoque mínimo"), 2, 1)
-        layout_form.addWidget(self.quantidade_minima, 3, 1)
-        layout_form.addWidget(self.check_sem_minimo, 4, 1)
         layout_card.addLayout(layout_form)
 
         self.btn_salvar = QPushButton("Cadastrar item")
@@ -156,12 +148,6 @@ class AddItemWidget(QWidget):
         label.setObjectName("formLabel")
         return label
 
-    def atualizar_estado_minimo(self):
-        sem_minimo = self.check_sem_minimo.isChecked()
-        self.quantidade_minima.setEnabled(not sem_minimo)
-        if sem_minimo:
-            self.quantidade_minima.setValue(0)
-
     def aplicar_tema(self, dark=False):
         self.dark_mode = dark
         p = palette(dark)
@@ -182,12 +168,11 @@ class AddItemWidget(QWidget):
                 font-weight: 800;
             }}
         """)
-        for widget in [self.nome, self.caixa, self.localizacao, self.quantidade, self.quantidade_minima]:
+        for widget in [self.nome, self.caixa, self.localizacao, self.quantidade]:
             widget.setStyleSheet(input_style(dark))
         for label in self.findChildren(QLabel, "formLabel") + [self.lbl_nome]:
             label.setStyleSheet(f"color: {p['text']}; font-weight: 800; border: none;")
         self.lbl_dica_minimo.setStyleSheet(f"color: {p['muted']}; border: none; font-size: 12px;")
-        self.check_sem_minimo.setStyleSheet(f"color: {p['text']}; border: none;")
         self.btn_foto.setStyleSheet(button_style("dark", dark))
         self.btn_salvar.setStyleSheet(button_style("primary", dark))
         self.btn_voltar.setStyleSheet(button_style("ghost", dark))
@@ -227,7 +212,7 @@ class AddItemWidget(QWidget):
             return
 
         caminho_banco = self.copiar_foto_para_app()
-        quantidade_minima = 0 if self.check_sem_minimo.isChecked() else self.quantidade_minima.value()
+        quantidade_minima = int(self.quantidade.value() * 0.10)
 
         try:
             adicionar_item(

@@ -118,7 +118,7 @@ class OperacionalWidget(QWidget):
             "Manutenção", "Itens em reparo", "#D97706"
         )
         self.card_cobertura, self.lbl_total_alertas, self.lbl_desc_alertas = self.criar_card_resumo(
-            "Cobertura", "Meta: 10% do uso", "#DC2626"
+            "Sem cobertura", "Meta: 10% do uso", "#DC2626"
         )
 
         layout.addWidget(self.card_estoque)
@@ -448,6 +448,9 @@ class OperacionalWidget(QWidget):
                     border-radius: 8px;
                     border: 1px solid {p['border']};
                 }}
+                QLabel#cardTitulo {{
+                    background-color: transparent;
+                }}
                 QLabel#cardValor {{
                     color: {p['text']};
                     font-size: 30px;
@@ -588,9 +591,12 @@ class OperacionalWidget(QWidget):
         self.lbl_total_uso.setText(str(total_uso))
         self.lbl_total_manutencao.setText(str(total_manutencao))
         self.lbl_total_alertas.setText(str(alertas_cobertura))
+        # Mantém a lógica atual de cobertura no card superior,
+        # mas deixa o texto coerente com o título quando não houver faltas.
         self.lbl_desc_alertas.setText(
             "itens faltando cobertura" if alertas_cobertura else "estoque cobre a meta"
         )
+
 
         self.tabela.resizeRowsToContents()
         self.atualizar_saldo_origem()
@@ -600,7 +606,7 @@ class OperacionalWidget(QWidget):
         if uso <= 0:
             return "Sem uso", "#64748B", None, 0
 
-        necessario = math.ceil(uso / 2)
+        necessario = math.ceil(uso / 10)
         falta = max(0, necessario - estoque)
         if falta > 0:
             return f"Falta {falta} p/ 10%", p["danger"], p["danger_bg"], falta
@@ -695,7 +701,21 @@ class OperacionalWidget(QWidget):
 
         QMessageBox.information(self, "Sucesso", "Transferência realizada com sucesso!")
         self.spin_qtd.setValue(1)
+
+        # Mantém o item selecionado após recarregar os dados
+        id_item_atual = id_item
+
+        # Recarrega a tela e o banco
         self.carregar_dados()
+
+        # Restaura seleção no combobox pelo id
+        idx_restaurar = -1
+        for i in range(self.cb_item.count()):
+            if self.cb_item.itemData(i) == id_item_atual:
+                idx_restaurar = i
+                break
+        if idx_restaurar != -1:
+            self.cb_item.setCurrentIndex(idx_restaurar)
 
     def aplicar_sombra(self, widget, blur=14, opacity=18):
         shadow = QGraphicsDropShadowEffect()
